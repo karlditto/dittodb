@@ -2,4 +2,4 @@
 
 set -xe
 
-gcc -o a array.c -I./
+gcc -Wall -Wextra -o a *.c -I./

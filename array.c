@@ -1,7 +1,7 @@
 #include "sqldb.h"
+#include <stdlib.h>
 
-int main(){
-  Array a = {0};
-  printf("size of Array:%lu", sizeof(&a));
-  return 0;
+Array *new_arr() {
+  Array *arr = calloc(1, sizeof(Array));
+  return arr;
 }
