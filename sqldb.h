@@ -1,5 +1,7 @@
 #include <assert.h>
 #include <ctype.h>
+#include <inttypes.h>
+#include <regex.h> // GNU only
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -8,13 +10,14 @@
 #include <string.h>
 
 // forawrd declaration
-typedef struct Node Node;
+typedef struct Expr Expr;
+typedef struct Clause Clause;
 typedef struct Token Token;
 //
 // array.c
 //
 typedef struct {
-  Node *items;
+  uint64_t *items;
   size_t cnt;
   size_t capa;
 } Array;
@@ -23,20 +26,20 @@ typedef struct {
 // macros see arguments always separated by comma, thus expr won't work so va
 // args is used. alternative is wrap argument in parentheses, va args only works
 // in last arguments
-#define append(xs, ...)                                                        \
-  do {                                                                         \
-    if (xs->cnt >= xs->capa) {                                                 \
-      if (xs->capa == 0)                                                       \
-        xs->capa = 256;                                                        \
-      else                                                                     \
-        xs->capa *= 2;                                                         \
-      xs->items = realloc(xs->items, xs->capa * sizeof(*xs->items));           \
-    }                                                                          \
-    xs->items[xs->cnt++] = __VA_ARGS__;                                        \
-  } while (0)
-#define pop(xs) (xs->items[--(xs->cnt)])
-#define first(xs) (xs->items[assert(xs->cnt > 0), 0]) // no error handling
-#define last(xs) (xs->items[assert(xs->cnt > 0), xs->cnt - 1])
+// #define append(xs, ...) \
+//   do { \
+//     if (xs->cnt >= xs->capa) { \
+//       if (xs->capa == 0) \
+//         xs->capa = 256; \
+//       else \
+//         xs->capa *= 2; \
+//       xs->items = realloc(xs->items, xs->capa * sizeof(*xs->items)); \
+//     } \
+//     xs->items[xs->cnt++] = __VA_ARGS__; \
+//   } while (0)
+// #define pop(xs) (xs->items[--(xs->cnt)])
+// #define first(xs) (xs->items[assert(xs->cnt > 0), 0]) // no error handling
+// #define last(xs) (xs->items[assert(xs->cnt > 0), xs->cnt - 1])
 
 Array *new_arr();
 
@@ -60,17 +63,13 @@ StringView sv(const char *cstr);
 // tokenize.c
 //
 typedef enum {
-  TOKEN_KYWD,   // keyword
-  TOKEN_IDTF,   // identifier
-  TOKEN_COMMA,  // ,
-  TOKEN_STR,    // string literal
-  TOKEN_NUM,    // numeric literal
-  TOKEN_EOF,    // EOF
-  TOKEN_OP,     // operator
-  TOKEN_STAR,   // *
-  TOKEN_LPAREN, // (
-  TOKEN_RPAREN, // )
-  TOKEN_DTYPE,  // datatype
+  KEYWORD,    // keyword
+  IDENTIFIER, // identifier
+  STRING,     // string literal
+  NUMERIC,    // numeric literal
+  EOQ,        // EOF
+  OPERATOR,   // operator
+  DTYPE,      // datatype
 } TokenType;
 
 struct Token {
@@ -84,58 +83,68 @@ struct Token {
 };
 
 Token *tokenize(char *);
-char *get_token_name(const Token *);
+char *get_token_type(const Token *);
+void print_token(Token *);
 
-// AST node
-typedef enum {
-  NODE_CREATE,
-  NODE_SELECT,
-  NODE_INSERT,
-  NODE_DELETE,
-  NODE_FROM,
-  NODE_TABLE,
-  NODE_ADD,
-  NODE_SUB,
-  NODE_MUL,
-  NODE_DIV,
-  NODE_NEG,
-  NODE_AND,
-  NODE_OR,
-  NODE_EQ,
-  NODE_NEQ,
-  NODE_LT,
-  NODE_LE,
-  NODE_GT,
-  NODE_GE,
-  NODE_NOT,
-  NODE_IS,
-  NODE_NULL,
-
-  NODE_ROOT
-} NodeName;
+//
+// ast.c
+//
 
 typedef enum {
-  NODE_CLAUSE,
-  NODE_STMT,
-  NODE_TERM, // select term
-  NODE_BIOP, // binary operator class
-  NODE_UOP,  // unary operator class
-  NODE_STR,  // string literal
-  NODE_NUM,  // numeric literal
-  NODE_ITDF, // identifier
-  NODE_OBJ,  // object type
-} NodeClass;
+  // DDL
+  CREATE,
+  DROP,
+  // DML
+  SELECT,
+  UPDATE,
+  DELETE,
+  INSERT,
+} StmtTyp;
 
-struct Node {
-  NodeName name;
-  NodeClass nodeclass;
-  Array *childs;
-  Token *token;
+typedef enum {
+  FROM,
+  WHERE,
+  SET,
+  INTO,
+  ORDERBY,
+} ClauseTyp;
+
+// definition of expression, consists of value and operator
+typedef enum {
+  ADD,
+  SUB,
+  MUL,
+  DIV,
+  AND,
+  OR,
+  IS,
+  NOT,
+  COMMA,
+  LPAREN,
+  RPAREN,
+  ATOM // expr with a single identifier or value
+} ExprTyp;
+
+struct Expr {
+  ExprTyp type;
+  Expr *lhs;
+  Expr *rhs;
 
   int64_t ival;
   long double fval;
+  char *str;
 };
 
-Node *parse(Token *);
-Node *new_node(NodeName, NodeClass, Array *);
-char *get_node_name(Node *);
+struct Clause {
+  ClauseTyp type;
+  Clause *next;
+};
+
+typedef struct {
+  StmtTyp type;
+  Clause *clause;
+
+} Statment;
+
+Expr *parseExpr(Token *tok);
+Expr *new_expr(ExprTyp);
