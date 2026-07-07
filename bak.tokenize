@@ -1,4 +1,11 @@
+#include "sqldb.h"
 
+void print_token(Token *token) {
+  Token *cur = token;
+  for (; cur->type != EOQ; cur = cur->next) {
+    printf("%-20s---> %20s\n", cur->str, get_token_type(cur));
+  }
+}
 
 static Token *new_token(TokenType type, char *start, char *end) {
   Token *token = calloc(1, sizeof(Token));

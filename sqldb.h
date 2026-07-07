@@ -10,14 +10,14 @@
 #include <string.h>
 
 // forawrd declaration
-typedef struct Expr Expr;
-typedef struct Clause Clause;
+
 typedef struct Token Token;
+typedef struct Node Node;
 //
 // array.c
 //
 typedef struct {
-  uint64_t *items;
+  Node *items;
   size_t cnt;
   size_t capa;
 } Array;
@@ -40,8 +40,13 @@ typedef struct {
 // #define pop(xs) (xs->items[--(xs->cnt)])
 // #define first(xs) (xs->items[assert(xs->cnt > 0), 0]) // no error handling
 // #define last(xs) (xs->items[assert(xs->cnt > 0), xs->cnt - 1])
+// #define at(xs, index) (xs->items[assert(xs->cnt > index), index])
 
-Array *new_arr();
+void append(Array *, Node *);
+Node *pop(Array *);
+Node *first(Array *);
+Node *last(Array *);
+Node *at(Array *, int);
 
 //
 // string.c
@@ -69,7 +74,8 @@ typedef enum {
   NUMERIC,    // numeric literal
   EOQ,        // EOF
   OPERATOR,   // operator
-  DTYPE,      // datatype
+  DATATYPE,   // datatype
+  TOKENCOUNT
 } TokenType;
 
 struct Token {
@@ -91,6 +97,7 @@ void print_token(Token *);
 //
 
 typedef enum {
+  // statement type
   // DDL
   CREATE,
   DROP,
@@ -99,18 +106,16 @@ typedef enum {
   UPDATE,
   DELETE,
   INSERT,
-} StmtTyp;
 
-typedef enum {
+  // clause type
   FROM,
   WHERE,
   SET,
   INTO,
-  ORDERBY,
-} ClauseTyp;
+  ORDER,
+  BY,
 
-// definition of expression, consists of value and operator
-typedef enum {
+  // expression type
   ADD,
   SUB,
   MUL,
@@ -122,29 +127,30 @@ typedef enum {
   COMMA,
   LPAREN,
   RPAREN,
-  ATOM // expr with a single identifier or value
-} ExprTyp;
+  ATOM,
+  DTYPE,
+  ROOT,
+  TYPECOUNT
+} ExactType;
 
-struct Expr {
-  ExprTyp type;
-  Expr *lhs;
-  Expr *rhs;
+typedef enum { STATEMMENT, EXPRESSION, CLAUSE, NODETYPECOUNT } NodeType;
 
-  int64_t ival;
-  long double fval;
-  char *str;
-};
+typedef struct {
+  NodeType nodetype;
+  ExactType exacttype;
+} Type;
 
-struct Clause {
-  ClauseTyp type;
-  Clause *next;
+struct Node {
+  Type type;
+
+  Array *childs;
+  Token *token;
 };
 
 typedef struct {
-  StmtTyp type;
-  Clause *clause;
+  int lhs;
+  int rhs;
+} BindPower;
 
-} Statment;
-
-Expr *parseExpr(Token *tok);
-Expr *new_expr(ExprTyp);
+Node *parse(Token *);
+void print_ast(Node *, int);
