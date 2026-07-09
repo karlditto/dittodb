@@ -25,7 +25,7 @@ char *get_token_type(const Token *token) {
 void print_token(Token *token) {
   Token *cur = token;
   for (; cur->type != EOQ; cur = cur->next) {
-    printf("%-10s---> %s\n", cur->str, get_token_type(cur));
+    printf("%-10s==>  %s\n", cur->str, get_token_type(cur));
   }
 }
 
@@ -200,7 +200,7 @@ static size_t match_operator(const char *s) {
   regmatch_t match[NUM_MATCHES];
   // const char *pattern =
   //     "^(\\+|-|\\*|/|=|<>|<|>|<=|>=|IS\\b|LIKE\\b|NOT\\b|AND\\b|OR\\b)";
-  const char *pattern = "^(\\+|-|\\*|/|\\(|\\)|,)";
+  const char *pattern = "^(\\+|-|\\*|/|\\(|\\)|,|=)";
 
   if (regcomp(&re, pattern, REG_ICASE | REG_EXTENDED)) {
     perror("regex compilation failed");

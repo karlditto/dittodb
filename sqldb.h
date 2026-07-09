@@ -127,6 +127,7 @@ typedef enum {
   IS,
   NOT,
   COMMA,
+  EQ,
   LPAREN,
   RPAREN,
   ATOM,

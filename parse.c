@@ -3,6 +3,7 @@
 #include <complex.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <strings.h>
 
 static Node *new_node(ExactType exacttype, NodeType nodetype) {
   Node *node = calloc(1, sizeof(Node));
@@ -37,6 +38,7 @@ static char *get_exact_type(Node *node) {
   exacttypestr[IS] = "IS";
   exacttypestr[NOT] = "NOT";
   exacttypestr[COMMA] = "COMMA";
+  exacttypestr[EQ] = "EQ";
   exacttypestr[LPAREN] = "LPAREN";
   exacttypestr[RPAREN] = "RPAREN";
   exacttypestr[ATOM] = "ATOM";
@@ -66,22 +68,29 @@ void print_ast(Node *node, int depth) {
 
 static BindPower bindpower_lookup(Token *token) {
   if (strcasecmp(token->str, "+") == 0) {
-    return (BindPower){.lhs = 1, .rhs = 2};
+    return (BindPower){.lhs = 3, .rhs = 4};
   }
   if (strcasecmp(token->str, "-") == 0) {
-    return (BindPower){.lhs = 1, .rhs = 2};
+    return (BindPower){.lhs = 3, .rhs = 4};
   }
   if (strcasecmp(token->str, "*") == 0) {
-    return (BindPower){.lhs = 3, .rhs = 4};
+    return (BindPower){.lhs = 5, .rhs = 6};
   }
   if (strcasecmp(token->str, "/") == 0) {
-    return (BindPower){.lhs = 3, .rhs = 4};
+    return (BindPower){.lhs = 5, .rhs = 6};
   }
   if (strcasecmp(token->str, "(") == 0) {
-    return (BindPower){.lhs = 3, .rhs = 4};
+    return (BindPower){.lhs = 5, .rhs = 6};
   }
   if (strcasecmp(token->str, ")") == 0) {
-    return (BindPower){.lhs = 3, .rhs = 4};
+    return (BindPower){.lhs = 5, .rhs = 6};
+  }
+  if (strcasecmp(token->str, ",") == 0) {
+    return (BindPower){.lhs = 1, .rhs = 2};
+  }
+
+  if (strcasecmp(token->str, "=") == 0) {
+    return (BindPower){.lhs = 2, .rhs = 1};
   }
   fprintf(stderr, "unknown operator in bind power lookup phase");
   exit(EXIT_FAILURE);
@@ -138,6 +147,10 @@ static Node *node_from_token(Token *token) {
     }
     if (strcasecmp(token->str, ",") == 0) {
       node->type.exacttype = COMMA;
+      return node;
+    }
+    if (strcasecmp(token->str, "=") == 0) {
+      node->type.exacttype = EQ;
       return node;
     }
     fprintf(stderr, "unknown operator at %s:%d", __FILE__, __LINE__);
@@ -226,11 +239,36 @@ static Node *node_from_token(Token *token) {
   }
 }
 
+// pratt parsing of expression
+//    a   +   b   *   c   +    d             min bind power = 0
+//    ^  1 2     3 4     1 2
+//   [a   +]  b   *   c   +    d             min bind power = R_BP("+")=2
+//            ^  3 4     1 2
+//   [a   +]  b   *   c   +    d             L_BP('*')=3 > 2;
+//   [a   +] [b   *   c   +    d]            recursively execute parse on 2nd
+//   bracket [a   +] [b   *   c]  +    d] [a   +][[b   *   c]  +]   d [a   +][[b
+//   *   c]  +    d] [a   +][ b   *   c   +    d] [a   +   b   *   c   +    d]
+//   then the expression is solved
 Node *parse_expr(Token **token, int min_bp) {
   Node *lhs = node_from_token(*token);
-  assert(lhs->type.exacttype == ATOM);
+  if (lhs->type.exacttype == LPAREN) {
+    // ( 1 + 2 ) * 3
+    *token = (*token)->next;
+    // ( 1 + 2 ) * 3
+    //   ^
+    lhs = parse_expr(token, 0);
+    *token = (*token)->next;
+    // ( 1 + 2 ) * 3
+    //         ^
+    assert(strcasecmp((*token)->str, ")") == 0);
+  }
+  assert(lhs->type.exacttype == ATOM || strcasecmp((*token)->str, ")") == 0);
   while (true) {
+    // 1 + 2 * 3
     Node *operator = node_from_token((*token)->next);
+    if (operator->type.exacttype == RPAREN) {
+      break;
+    }
     if (operator->token->type == EOQ || operator->type.nodetype == STATEMMENT ||
         operator->type.nodetype == CLAUSE) {
       break;
@@ -241,8 +279,11 @@ Node *parse_expr(Token **token, int min_bp) {
     if (l_bp < min_bp) {
       break;
     }
-
+    // 1 + 2 * 3
+    //   ^
     *token = (*token)->next;
+    // 1 + 2 * 3
+    //     ^
     *token = (*token)->next;
     Node *rhs = parse_expr(token, r_bp);
     append(operator->childs, lhs);
