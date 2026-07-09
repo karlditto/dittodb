@@ -17,12 +17,14 @@ static char *get_exact_type(Node *node) {
   exacttypestr[UPDATE] = "UPDATE";
   exacttypestr[DELETE] = "DELETE";
   exacttypestr[INSERT] = "INSERT";
+  exacttypestr[ROOT] = "ROOT";
   exacttypestr[FROM] = "FROM";
   exacttypestr[WHERE] = "WHERE";
   exacttypestr[SET] = "SET";
   exacttypestr[INTO] = "INTO";
   exacttypestr[ORDER] = "ORDER";
   exacttypestr[BY] = "BY";
+  exacttypestr[VALUES] = "VALUES";
   exacttypestr[ADD] = "ADD";
   exacttypestr[SUB] = "SUB";
   exacttypestr[MUL] = "MUL";
@@ -36,7 +38,8 @@ static char *get_exact_type(Node *node) {
   exacttypestr[RPAREN] = "RPAREN";
   exacttypestr[ATOM] = "ATOM";
   exacttypestr[DTYPE] = "DTYPE";
-  exacttypestr[ROOT] = "ROOT";
+  exacttypestr[TABLE] = "TABLE";
+  exacttypestr[INDEX] = "INDEX";
   return exacttypestr[node->type.exacttype];
 }
 
@@ -45,11 +48,13 @@ char *get_node_type(Node *node) {
   nodetypestr[STATEMMENT] = "STATEMMENT";
   nodetypestr[EXPRESSION] = "EXPRESSION";
   nodetypestr[CLAUSE] = "CLAUSE";
+  nodetypestr[OBJECT] = "OBJECT";
   return nodetypestr[node->type.nodetype];
 }
 
 void print_ast(Node *node, int depth) {
-  printf("%d %s %s\n", depth, get_exact_type(node), get_node_type(node));
+  printf("%-3d| %*s %s (%s %s)\n", depth, 1 * depth, "|", node->token->str,
+         get_exact_type(node), get_node_type(node));
   for (size_t i = 0; i < node->childs->cnt; i++) {
     Node *cur_node = at(node->childs, i);
     print_ast(cur_node, depth + 1);
@@ -112,6 +117,18 @@ static Node *node_from_token(Token *token) {
     }
     if (strcasecmp(token->str, "/") == 0) {
       node->type.exacttype = DIV;
+      return node;
+    }
+    if (strcasecmp(token->str, "(") == 0) {
+      node->type.exacttype = LPAREN;
+      return node;
+    }
+    if (strcasecmp(token->str, ")") == 0) {
+      node->type.exacttype = RPAREN;
+      return node;
+    }
+    if (strcasecmp(token->str, ",") == 0) {
+      node->type.exacttype = COMMA;
       return node;
     }
     fprintf(stderr, "unknown operator at %s:%d", __FILE__, __LINE__);
@@ -178,35 +195,43 @@ static Node *node_from_token(Token *token) {
       node->type.exacttype = BY;
       return node;
     }
-    fprintf(stderr, "unknown operator at %s:%d", __FILE__, __LINE__);
+    if (strcasecmp(token->str, "VALUES") == 0) {
+      node->type.nodetype = CLAUSE;
+      node->type.exacttype = VALUES;
+      return node;
+    }
+    if (strcasecmp(token->str, "TABLE") == 0) {
+      node->type.nodetype = OBJECT;
+      node->type.exacttype = TABLE;
+      return node;
+    }
+    if (strcasecmp(token->str, "INDEX") == 0) {
+      node->type.nodetype = OBJECT;
+      node->type.exacttype = INDEX;
+      return node;
+    }
+    fprintf(stderr, "cannot infer nodetype from token at %s:%d\n", __FILE__,
+            __LINE__);
     exit(EXIT_FAILURE);
     return node;
   }
 }
 
-static Node *pratt_parse(Token *token) {
-
-  for (; token->type != EOQ; token = token->next) {
-    if (token->type == token->next->type) {
-      break;
-    }
-  }
-}
-
-static Node *parse_expr(Token *token) {
-
-  for (; token->type != EOQ; token = token->next) {
-  }
-}
-
 Node *parse(Token *token) {
   Node *root = new_node(ROOT, STATEMMENT);
+  root->token = &(Token){.str = "ROOT OF QUERY"};
   Node *cur_node = root;
 
   for (; token->type != EOQ; token = token->next) {
 
-    append(cur_node->childs, node_from_token(token));
-    cur_node = last(cur_node->childs);
+    Node *node = node_from_token(token);
+    if (node->type.nodetype == STATEMMENT || node->type.nodetype == CLAUSE) {
+      append(root->childs, node);
+      cur_node = last(root->childs);
+    } else {
+      append(cur_node->childs, node_from_token(token));
+      cur_node = last(cur_node->childs);
+    }
   }
 
   return root;

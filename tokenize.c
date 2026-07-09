@@ -63,7 +63,7 @@ static size_t match_keyword(const char *s) {
   regmatch_t match[NUM_MATCHES];
   const char *pattern =
       "^(create|select|insert|into|delete|update|from|and|or|is|"
-      "not|null|where|like|table|order|by)\\b";
+      "not|null|where|like|table|index|order|by|values)\\b";
 
   if (regcomp(&re, pattern, REG_ICASE | REG_EXTENDED)) {
     perror("regex compilation failed");
@@ -200,7 +200,7 @@ static size_t match_operator(const char *s) {
   regmatch_t match[NUM_MATCHES];
   // const char *pattern =
   //     "^(\\+|-|\\*|/|=|<>|<|>|<=|>=|IS\\b|LIKE\\b|NOT\\b|AND\\b|OR\\b)";
-  const char *pattern = "^(\\+|-|\\*|/)";
+  const char *pattern = "^(\\+|-|\\*|/|\\(|\\)|,)";
 
   if (regcomp(&re, pattern, REG_ICASE | REG_EXTENDED)) {
     perror("regex compilation failed");
@@ -295,7 +295,7 @@ Token *tokenize(char *s) {
 
     len = match_dtype(s);
     if (len) {
-      cur->next = new_token(DTYPE, s, len);
+      cur->next = new_token(DATATYPE, s, len);
       char *buf = calloc(1, len + 1);
       sprintf(buf, "%.*s", (int)len, s);
       cur->next->str = buf;
@@ -315,7 +315,7 @@ Token *tokenize(char *s) {
       continue;
     }
 
-    fprintf(stderr, "unknown token at: %ld\n", s - start_loc);
+    fprintf(stderr, "unknown token at: %ld, token:%s\n", s - start_loc, s);
     exit(EXIT_FAILURE);
   }
 

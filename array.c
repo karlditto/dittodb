@@ -24,5 +24,5 @@ Node *last(Array *arr) {
 }
 
 Node *at(Array *arr, int index) {
-  return &arr->items[assert(arr->cnt > index), index];
+  return &arr->items[assert(arr->cnt > (long unsigned int)index), index];
 }

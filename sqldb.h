@@ -98,6 +98,7 @@ void print_token(Token *);
 
 typedef enum {
   // statement type
+  ROOT,
   // DDL
   CREATE,
   DROP,
@@ -114,6 +115,7 @@ typedef enum {
   INTO,
   ORDER,
   BY,
+  VALUES,
 
   // expression type
   ADD,
@@ -129,11 +131,15 @@ typedef enum {
   RPAREN,
   ATOM,
   DTYPE,
-  ROOT,
-  TYPECOUNT
+
+  // object catalog
+  TABLE,
+  INDEX,
+
+  TYPECOUNT,
 } ExactType;
 
-typedef enum { STATEMMENT, EXPRESSION, CLAUSE, NODETYPECOUNT } NodeType;
+typedef enum { STATEMMENT, EXPRESSION, CLAUSE, OBJECT, NODETYPECOUNT } NodeType;
 
 typedef struct {
   NodeType nodetype;
