@@ -6,5 +6,6 @@ int main(int argc, char *argv[]) {
 
   print_token(token);
 
-  print_ast(parse(token), 1);
+  Node *ast = parse(token);
+  print_ast(ast, 1);
 }

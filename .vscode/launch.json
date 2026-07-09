@@ -30,7 +30,7 @@
             "request": "launch",
             "program": "${fileDirname}/${fileBasenameNoExtension}",
             "args": [
-                "select update"
+                "2 + 3 + 4"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

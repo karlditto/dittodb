@@ -1,4 +1,7 @@
 #include "sqldb.h"
+#include <assert.h>
+#include <complex.h>
+#include <stdbool.h>
 #include <stddef.h>
 
 static Node *new_node(ExactType exacttype, NodeType nodetype) {
@@ -72,6 +75,12 @@ static BindPower bindpower_lookup(Token *token) {
     return (BindPower){.lhs = 3, .rhs = 4};
   }
   if (strcasecmp(token->str, "/") == 0) {
+    return (BindPower){.lhs = 3, .rhs = 4};
+  }
+  if (strcasecmp(token->str, "(") == 0) {
+    return (BindPower){.lhs = 3, .rhs = 4};
+  }
+  if (strcasecmp(token->str, ")") == 0) {
     return (BindPower){.lhs = 3, .rhs = 4};
   }
   fprintf(stderr, "unknown operator in bind power lookup phase");
@@ -217,6 +226,33 @@ static Node *node_from_token(Token *token) {
   }
 }
 
+Node *parse_expr(Token **token, int min_bp) {
+  Node *lhs = node_from_token(*token);
+  assert(lhs->type.exacttype == ATOM);
+  while (true) {
+    Node *operator = node_from_token((*token)->next);
+    if (operator->token->type == EOQ || operator->type.nodetype == STATEMMENT ||
+        operator->type.nodetype == CLAUSE) {
+      break;
+    }
+    assert(operator->token->type == OPERATOR);
+    int l_bp = bindpower_lookup(operator->token).lhs;
+    int r_bp = bindpower_lookup(operator->token).rhs;
+    if (l_bp < min_bp) {
+      break;
+    }
+
+    *token = (*token)->next;
+    *token = (*token)->next;
+    Node *rhs = parse_expr(token, r_bp);
+    append(operator->childs, lhs);
+    append(operator->childs, rhs);
+
+    lhs = operator;
+  }
+  return lhs;
+}
+
 Node *parse(Token *token) {
   Node *root = new_node(ROOT, STATEMMENT);
   root->token = &(Token){.str = "ROOT OF QUERY"};
@@ -225,12 +261,29 @@ Node *parse(Token *token) {
   for (; token->type != EOQ; token = token->next) {
 
     Node *node = node_from_token(token);
-    if (node->type.nodetype == STATEMMENT || node->type.nodetype == CLAUSE) {
-      append(root->childs, node);
-      cur_node = last(root->childs);
-    } else {
-      append(cur_node->childs, node_from_token(token));
+    if (node->type.nodetype == STATEMMENT || node->type.nodetype == CLAUSE ||
+        node->type.nodetype == OBJECT) {
+
+      if (node->type.exacttype == INTO && cur_node->type.exacttype == INSERT) {
+        append(cur_node->childs, node);
+        cur_node = last(cur_node->childs);
+        continue;
+      }
+
+      if (node->type.nodetype == OBJECT) {
+        append(cur_node->childs, node);
+        cur_node = last(cur_node->childs);
+        continue;
+      }
+
+      append(cur_node->childs, node);
       cur_node = last(cur_node->childs);
+    } else {
+      // append(root->childs, node);
+      // cur_node = last(root->childs);
+      Node *expr = parse_expr(&token, 0);
+      append(cur_node->childs, expr);
+      cur_node = root;
     }
   }
 
