@@ -261,9 +261,10 @@ Node *parse_expr(Token **token, int min_bp) {
     if (prefix_operand->type.exacttype == LPAREN) {
       append(lhs->childs, parse_expr(token, 0));
       lhs->expr_rhs = prefix_operand;
+    } else {
+      append(lhs->childs, prefix_operand);
+      lhs->expr_rhs = prefix_operand;
     }
-    append(lhs->childs, prefix_operand);
-    lhs->expr_rhs = prefix_operand;
   }
   if (lhs->type.exacttype == LPAREN) {
     // ( 1 + 2 ) * 3
