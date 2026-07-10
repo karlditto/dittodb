@@ -151,6 +151,8 @@ struct Node {
   Type type;
 
   Array *childs;
+  Node *expr_lhs;
+  Node *expr_rhs; // TODO: migrate to lhs, rhs
   Token *token;
 };
 

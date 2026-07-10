@@ -251,6 +251,20 @@ static Node *node_from_token(Token *token) {
 //   then the expression is solved
 Node *parse_expr(Token **token, int min_bp) {
   Node *lhs = node_from_token(*token);
+  if (lhs->type.exacttype == ADD || lhs->type.exacttype == SUB) {
+    // prefix operator
+    // - ( 1 + 2 )
+    *token = (*token)->next;
+    // - ( 1 + 2 )
+    //   ^
+    Node *prefix_operand = node_from_token(*token);
+    if (prefix_operand->type.exacttype == LPAREN) {
+      append(lhs->childs, parse_expr(token, 0));
+      lhs->expr_rhs = prefix_operand;
+    }
+    append(lhs->childs, prefix_operand);
+    lhs->expr_rhs = prefix_operand;
+  }
   if (lhs->type.exacttype == LPAREN) {
     // ( 1 + 2 ) * 3
     *token = (*token)->next;
@@ -262,7 +276,6 @@ Node *parse_expr(Token **token, int min_bp) {
     //         ^
     assert(strcasecmp((*token)->str, ")") == 0);
   }
-  assert(lhs->type.exacttype == ATOM || strcasecmp((*token)->str, ")") == 0);
   while (true) {
     // 1 + 2 * 3
     Node *operator = node_from_token((*token)->next);
@@ -288,6 +301,8 @@ Node *parse_expr(Token **token, int min_bp) {
     Node *rhs = parse_expr(token, r_bp);
     append(operator->childs, lhs);
     append(operator->childs, rhs);
+    operator->expr_lhs = lhs;
+    operator->expr_rhs = rhs;
 
     lhs = operator;
   }

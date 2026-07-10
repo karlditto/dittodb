@@ -30,7 +30,7 @@
             "request": "launch",
             "program": "${fileDirname}/${fileBasenameNoExtension}",
             "args": [
-                "(2 + 3) * 4"
+                "(-1+1)*2"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
