@@ -1,3 +1,4 @@
+#include "region.h"
 #include <assert.h>
 #include <ctype.h>
 #include <inttypes.h>

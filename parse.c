@@ -8,6 +8,8 @@
 #include <strings.h>
 #include <unistd.h>
 
+extern Region r;
+
 void node_free(Node *node) {
   Node *tmp;
   for (size_t i = 0; i < node->childs->cnt; i++) {
@@ -17,11 +19,19 @@ void node_free(Node *node) {
   free(node->childs->items);
 }
 
+// static Node *new_node(ExactType exacttype, NodeType nodetype) {
+//   Node *node = calloc(1, sizeof(Node));
+//   node->type.nodetype = nodetype;
+//   node->type.exacttype = exacttype;
+//   node->childs = calloc(1, sizeof(Array));
+//   return node;
+// }
+
 static Node *new_node(ExactType exacttype, NodeType nodetype) {
-  Node *node = calloc(1, sizeof(Node));
+  Node *node = region_alloc(&r, sizeof(Node));
   node->type.nodetype = nodetype;
   node->type.exacttype = exacttype;
-  node->childs = calloc(1, sizeof(Array));
+  node->childs = region_alloc(&r, sizeof(Array));
   return node;
 }
 
@@ -290,7 +300,7 @@ Node *parse_expr(Token **token, int min_bp) {
     *token = (*token)->next;
     // ( 1 + 2 ) * 3
     //   ^
-    node_free(lhs);
+    // node_free(lhs);
     lhs = parse_expr(token, 0);
     *token = (*token)->next;
     // ( 1 + 2 ) * 3
@@ -341,6 +351,7 @@ Node *parse(Token *token) {
   Node *root = new_node(ROOT, STATEMMENT);
   // root->token = &(Token){.str = "ROOT OF QUERY"}; // stack-use-after-return
   root->token = new_token(KEYWORD, "ROOT OF QUERY", 0);
+  root->token->str = "ROOT OF QUERY";
   Node *cur_node = root;
 
   for (; token->type != EOQ; token = token->next) {
@@ -370,7 +381,7 @@ Node *parse(Token *token) {
     } else {
       // append(root->childs, node);
       // cur_node = last(root->childs);
-      node_free(node);
+      // node_free(node);
       Node *expr = parse_expr(&token, 0);
       append(cur_node->childs, expr);
       cur_node = root;

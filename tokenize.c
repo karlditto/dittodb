@@ -5,6 +5,8 @@
 #include <time.h>
 #include <unistd.h>
 
+extern Region r;
+
 void token_free(Token *token) {
   Token *tmp;
   while (token != NULL) {
@@ -16,7 +18,7 @@ void token_free(Token *token) {
 }
 
 Token *new_token(TokenType type, char *loc, size_t len) {
-  Token *token = calloc(1, sizeof(Token));
+  Token *token = region_alloc(&r, sizeof(Token));
   token->type = type;
   token->loc = loc;
   token->len = len;
@@ -253,7 +255,7 @@ Token *tokenize(char *s) {
     len = match_float(s);
     if (len) {
       cur->next = new_token(NUMERIC, s, len);
-      char *buf = calloc(1, len + 1);
+      char *buf = region_alloc(&r, len + 1);
       sprintf(buf, "%.*s", (int)len, s);
       cur->next->fval = strtold(buf, NULL);
       cur->next->str = buf;
@@ -264,7 +266,7 @@ Token *tokenize(char *s) {
     len = match_integer(s);
     if (len) {
       cur->next = new_token(NUMERIC, s, len);
-      char *buf = calloc(1, len + 1);
+      char *buf = region_alloc(&r, len + 1);
       sprintf(buf, "%.*s", (int)len, s);
       cur->next->ival = strtoll(buf, NULL, 10);
       cur->next->str = buf;
@@ -276,7 +278,7 @@ Token *tokenize(char *s) {
     len = match_operator(s);
     if (len) {
       cur->next = new_token(OPERATOR, s, len);
-      char *buf = calloc(1, len + 1);
+      char *buf = region_alloc(&r, len + 1);
       sprintf(buf, "%.*s", (int)len, s);
       cur->next->str = buf;
       cur = cur->next;
@@ -287,7 +289,7 @@ Token *tokenize(char *s) {
     len = match_string(s);
     if (len) {
       cur->next = new_token(STRING, s, len);
-      char *buf = calloc(1, len - 1);
+      char *buf = region_alloc(&r, len - 1);
       sprintf(buf, "%.*s", (int)len - 2, s + 1);
       cur->next->str = buf;
       cur = cur->next;
@@ -298,7 +300,7 @@ Token *tokenize(char *s) {
     len = match_keyword(s);
     if (len) {
       cur->next = new_token(KEYWORD, s, len);
-      char *buf = calloc(1, len + 1);
+      char *buf = region_alloc(&r, len + 1);
       sprintf(buf, "%.*s", (int)len, s);
       cur->next->str = buf;
       cur = cur->next;
@@ -309,7 +311,7 @@ Token *tokenize(char *s) {
     len = match_dtype(s);
     if (len) {
       cur->next = new_token(DATATYPE, s, len);
-      char *buf = calloc(1, len + 1);
+      char *buf = region_alloc(&r, len + 1);
       sprintf(buf, "%.*s", (int)len, s);
       cur->next->str = buf;
       cur = cur->next;
@@ -320,7 +322,7 @@ Token *tokenize(char *s) {
     len = match_identifier(s);
     if (len) {
       cur->next = new_token(IDENTIFIER, s, len);
-      char *buf = calloc(1, len + 1);
+      char *buf = region_alloc(&r, len + 1);
       sprintf(buf, "%.*s", (int)len, s);
       cur->next->str = buf;
       cur = cur->next;

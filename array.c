@@ -3,6 +3,8 @@
 #include <stddef.h>
 #include <stdlib.h>
 
+extern Region r;
+
 void append(Array *arr, Node *item) {
   if (arr->cnt >= arr->capa) {
     if (arr->capa == 0) {
@@ -10,7 +12,7 @@ void append(Array *arr, Node *item) {
     } else {
       arr->capa *= 2;
     }
-    arr->items = realloc(arr->items, arr->capa * sizeof(*arr->items));
+    arr->items = region_alloc(&r, arr->capa * sizeof(*arr->items));
   }
   arr->items[arr->cnt++] = *item;
 }
