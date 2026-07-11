@@ -1,8 +1,21 @@
 #include "sqldb.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/ucontext.h>
+#include <time.h>
+#include <unistd.h>
 
-static Token *new_token(TokenType type, char *loc, size_t len) {
+void token_free(Token *token) {
+  Token *tmp;
+  while (token != NULL) {
+    tmp = token;
+    token = token->next;
+    free(tmp->str);
+    free(tmp);
+  }
+}
+
+Token *new_token(TokenType type, char *loc, size_t len) {
   Token *token = calloc(1, sizeof(Token));
   token->type = type;
   token->loc = loc;

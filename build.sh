@@ -2,4 +2,4 @@
 
 set -xe
 
-gcc -Wall -Wextra -o a *.c -I./
+gcc -ggdb -Wall -Wextra -o a *.c -I./

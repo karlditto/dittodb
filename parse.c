@@ -3,7 +3,19 @@
 #include <complex.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <strings.h>
+#include <unistd.h>
+
+void node_free(Node *node) {
+  Node *tmp;
+  for (size_t i = 0; i < node->childs->cnt; i++) {
+    tmp = &node->childs->items[i];
+    node_free(tmp);
+  }
+  free(node->childs->items);
+}
 
 static Node *new_node(ExactType exacttype, NodeType nodetype) {
   Node *node = calloc(1, sizeof(Node));
@@ -88,7 +100,6 @@ static BindPower bindpower_lookup(Token *token) {
   if (strcasecmp(token->str, ",") == 0) {
     return (BindPower){.lhs = 1, .rhs = 2};
   }
-
   if (strcasecmp(token->str, "=") == 0) {
     return (BindPower){.lhs = 2, .rhs = 1};
   }
@@ -258,9 +269,17 @@ Node *parse_expr(Token **token, int min_bp) {
     // - ( 1 + 2 )
     //   ^
     Node *prefix_operand = node_from_token(*token);
+    if (prefix_operand->type.exacttype == ADD ||
+        prefix_operand->type.exacttype == SUB) {
+      // --5 invalid
+      // 1+-5 valid
+      fprintf(stderr, "%s\n", "chained prefix operator not supported");
+      exit(EXIT_FAILURE);
+    }
     if (prefix_operand->type.exacttype == LPAREN) {
-      append(lhs->childs, parse_expr(token, 0));
-      lhs->expr_rhs = prefix_operand;
+      Node *paren_expr = parse_expr(token, 0);
+      append(lhs->childs, paren_expr);
+      lhs->expr_rhs = paren_expr;
     } else {
       append(lhs->childs, prefix_operand);
       lhs->expr_rhs = prefix_operand;
@@ -271,6 +290,7 @@ Node *parse_expr(Token **token, int min_bp) {
     *token = (*token)->next;
     // ( 1 + 2 ) * 3
     //   ^
+    node_free(lhs);
     lhs = parse_expr(token, 0);
     *token = (*token)->next;
     // ( 1 + 2 ) * 3
@@ -280,6 +300,12 @@ Node *parse_expr(Token **token, int min_bp) {
   while (true) {
     // 1 + 2 * 3
     Node *operator = node_from_token((*token)->next);
+    if (operator->type.exacttype == DTYPE) {
+      append(lhs->childs, operator);
+      lhs->expr_lhs = operator;
+      *token = (*token)->next;
+      operator = node_from_token((*token)->next);
+    }
     if (operator->type.exacttype == RPAREN) {
       break;
     }
@@ -287,6 +313,7 @@ Node *parse_expr(Token **token, int min_bp) {
         operator->type.nodetype == CLAUSE) {
       break;
     }
+
     assert(operator->token->type == OPERATOR);
     int l_bp = bindpower_lookup(operator->token).lhs;
     int r_bp = bindpower_lookup(operator->token).rhs;
@@ -312,7 +339,8 @@ Node *parse_expr(Token **token, int min_bp) {
 
 Node *parse(Token *token) {
   Node *root = new_node(ROOT, STATEMMENT);
-  root->token = &(Token){.str = "ROOT OF QUERY"};
+  // root->token = &(Token){.str = "ROOT OF QUERY"}; // stack-use-after-return
+  root->token = new_token(KEYWORD, "ROOT OF QUERY", 0);
   Node *cur_node = root;
 
   for (; token->type != EOQ; token = token->next) {
@@ -335,9 +363,14 @@ Node *parse(Token *token) {
 
       append(cur_node->childs, node);
       cur_node = last(cur_node->childs);
+    } else if (cur_node->type.exacttype == TABLE) {
+      append(cur_node->childs, node);
+      cur_node = last(cur_node->childs);
+      continue;
     } else {
       // append(root->childs, node);
       // cur_node = last(root->childs);
+      node_free(node);
       Node *expr = parse_expr(&token, 0);
       append(cur_node->childs, expr);
       cur_node = root;

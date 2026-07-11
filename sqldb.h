@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 // forawrd declaration
 
@@ -89,8 +90,10 @@ struct Token {
 };
 
 Token *tokenize(char *);
+Token *new_token(TokenType, char *, size_t);
 char *get_token_type(const Token *);
 void print_token(Token *);
+void token_free(Token *token);
 
 //
 // ast.c
@@ -163,3 +166,4 @@ typedef struct {
 
 Node *parse(Token *);
 void print_ast(Node *, int);
+void node_free(Node *node);
