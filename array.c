@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-extern Region r;
+extern Region mem_ast;
 
 void append(Array *arr, Node *item) {
   if (arr->cnt >= arr->capa) {
@@ -12,7 +12,7 @@ void append(Array *arr, Node *item) {
     } else {
       arr->capa *= 2;
     }
-    arr->items = region_alloc(&r, arr->capa * sizeof(*arr->items));
+    arr->items = region_alloc(&mem_ast, arr->capa * sizeof(*arr->items));
   }
   arr->items[arr->cnt++] = *item;
 }

@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-Region meta_alloc(size_t capacity) {
+Region region_init(size_t capacity) {
   void *data = calloc(1, capacity);
   assert(data != NULL);
 

@@ -7,6 +7,6 @@ typedef struct {
   char *data;
 } Region;
 
-Region meta_alloc(size_t capacity);
+Region region_init(size_t capacity);
 void *region_alloc(Region *r, size_t size);
 void region_free(Region *r);

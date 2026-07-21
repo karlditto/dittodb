@@ -50,7 +50,6 @@ int main2(int argc, char *argv[]) {
     region_free(&mem_ast);
   }
   free(mem_ast.data);
-  free(command);
 
   return 0;
 }

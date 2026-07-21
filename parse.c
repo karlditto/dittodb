@@ -8,7 +8,7 @@
 #include <strings.h>
 #include <unistd.h>
 
-extern Region r;
+extern Region mem_ast;
 
 void node_free(Node *node) {
   Node *tmp;
@@ -28,10 +28,10 @@ void node_free(Node *node) {
 // }
 
 static Node *new_node(ExactType exacttype, NodeType nodetype) {
-  Node *node = region_alloc(&r, sizeof(Node));
+  Node *node = region_alloc(&mem_ast, sizeof(Node));
   node->type.nodetype = nodetype;
   node->type.exacttype = exacttype;
-  node->childs = region_alloc(&r, sizeof(Array));
+  node->childs = region_alloc(&mem_ast, sizeof(Array));
   return node;
 }
 
@@ -307,6 +307,9 @@ Node *parse_expr(Token **token, int min_bp) {
     //         ^
     assert(strcasecmp((*token)->str, ")") == 0);
   }
+  assert(lhs->type.exacttype == ADD || lhs->type.exacttype == SUB ||
+         lhs->type.exacttype == ATOM ||
+         lhs->type.exacttype == MUL); // MUL as asterisk in select * from table
   while (true) {
     // 1 + 2 * 3
     Node *operator = node_from_token((*token)->next);

@@ -2,4 +2,6 @@
 
 set -xe
 
-gcc -ggdb -Wall -Wextra -o sql *.c -I./
+shopt -s extglob
+
+gcc -ggdb -Wall -Wextra -o sql !(test).c -I./
