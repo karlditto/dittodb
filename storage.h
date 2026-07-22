@@ -8,7 +8,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
-#define DB_PAGE_SIZE 4096 // in bytes
+#define DB_PAGE_SIZE 4 * 1024 // in bytes
 #define OBJ_NAME_LEN 128
 #define HASH_BUCKET_SIZE 1024 * 53
 
@@ -74,14 +74,31 @@ void hash_append(PageDirectory *ht, char *key);
 size_t pd_todisk(PageDirectory *pd, char *filename);
 PageDirectory pd_fromdisk(char *filename);
 
+typedef enum {
+  TABLE_PAGE,
+  INDEX_PAGE,
+  ROOT_PAGE,
+  PAGETYPECNT,
+} PageType;
+
+typedef struct {
+  unsigned long long pageno;
+  unsigned long long pagecnt;
+  PageType pagetype;
+
+  char data[DB_PAGE_SIZE - sizeof(unsigned long long) * 3];
+} RootPage;
+
 // data page
 typedef struct {
   // header
-  unsigned long long pageno;
+  unsigned long long pageno; // start from 0;
   unsigned long long slotcnt;
+  unsigned short freespace; // in bytes
+  PageType pagetype;
 
   // data section
-  char data[DB_PAGE_SIZE - sizeof(unsigned long long) * 2];
+  char data[DB_PAGE_SIZE - sizeof(unsigned long long) * 3];
 } Page;
 
 typedef struct {

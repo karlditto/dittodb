@@ -1,4 +1,5 @@
 #include "region.h"
+#include "storage.h"
 #include <assert.h>
 #include <ctype.h>
 #include <inttypes.h>
@@ -24,26 +25,27 @@ typedef struct {
   size_t capa;
 } Array;
 
-// macro for manipluating array
-// macros see arguments always separated by comma, thus expr won't work so va
-// args is used. alternative is wrap argument in parentheses, va args only works
-// in last arguments
-// #define append(xs, ...) \
-//   do { \
-//     if (xs->cnt >= xs->capa) { \
-//       if (xs->capa == 0) \
-//         xs->capa = 256; \
-//       else \
-//         xs->capa *= 2; \
-//       xs->items = realloc(xs->items, xs->capa * sizeof(*xs->items)); \
-//     } \
-//     xs->items[xs->cnt++] = __VA_ARGS__; \
-//   } while (0)
-// #define pop(xs) (xs->items[--(xs->cnt)])
-// #define first(xs) (xs->items[assert(xs->cnt > 0), 0]) // no error handling
-// #define last(xs) (xs->items[assert(xs->cnt > 0), xs->cnt - 1])
-// #define at(xs, index) (xs->items[assert(xs->cnt > index), index])
-
+/*macro for manipluating array
+macros see arguments always separated by comma, thus expr won't work so va
+args is used. alternative is wrap argument in parentheses, va args only works
+in last arguments */
+/*
+#define append(xs, ...) \
+  do { \
+    if (xs->cnt >= xs->capa) { \
+      if (xs->capa == 0) \
+        xs->capa = 256; \
+      else \
+        xs->capa *= 2; \
+      xs->items = realloc(xs->items, xs->capa * sizeof(*xs->items)); \
+    } \
+    xs->items[xs->cnt++] = __VA_ARGS__; \
+  } while (0)
+#define pop(xs) (xs->items[--(xs->cnt)])
+#define first(xs) (xs->items[assert(xs->cnt > 0), 0]) // no error handling
+#define last(xs) (xs->items[assert(xs->cnt > 0), xs->cnt - 1])
+#define at(xs, index) (xs->items[assert(xs->cnt > index), index])
+*/
 void append(Array *, Node *);
 Node *pop(Array *);
 Node *first(Array *);

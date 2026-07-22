@@ -122,6 +122,8 @@ static Node *node_from_token(Token *token) {
   Node *node = new_node(ROOT, STATEMMENT);
   node->token = token;
   switch (token->type) {
+  case TOKENCOUNT:
+    break;
   case EOQ:
     return node;
   case DATATYPE:
@@ -258,6 +260,7 @@ static Node *node_from_token(Token *token) {
     exit(EXIT_FAILURE);
     return node;
   }
+  return NULL;
 }
 
 // pratt parsing of expression
