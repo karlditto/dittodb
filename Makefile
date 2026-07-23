@@ -3,3 +3,6 @@ sql:main.c
 
 run:sql
 	./sql
+
+debug:main.c
+	cc -g -Wall -Wextra -o sql *.c -I./

@@ -1,148 +1,130 @@
 #include "storage.h"
 #include <assert.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
-void UsedPageAppend(UsedPageNO *arr, uint64_t pageno) {
-  if (arr->cnt >= arr->capa) {
-    if (arr->capa == 0) {
-      arr->capa = 8;
-    } else {
-      arr->capa *= 2;
+// dynamic hash map implemented with open addressing
+unsigned long hash(char *str) {
+  // djb2
+  unsigned long hash = 5381;
+  int c;
+
+  while ((c = *str++))
+    hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+
+  return hash;
+}
+
+static void hashmap_insert(HashMap *map, char *key) {
+  assert(map->capa > map->cnt);
+  unsigned long idx = hash(key) % map->capa;
+  for (size_t i = 0; i < map->capa && map->items[idx].occupied &&
+                     strcmp(map->items[idx].objname, key) != 0;
+       i++) {
+
+    if (map->items[idx].deleted) {
+      if (hashmap_find(map, key)) {
+        printf("Keys collide\n");
+        return;
+      } else {
+        strcpy(map->items[idx].objname, key);
+        map->items[idx].deleted = false;
+        return;
+      }
     }
-    arr->items = realloc(arr->items, arr->capa * sizeof(*arr->items));
+    idx = (idx + 1) & (map->capa - 1); // base 2 only
   }
-  arr->items[arr->cnt++] = pageno;
-}
-
-uint64_t hash(char *s, size_t len) {
-  uint64_t result = 0;
-  for (size_t i = 0; i < len; i++) {
-    result += result * 31 + (uint64_t)s[i];
-  }
-  return result;
-}
-
-void hash_append(PageDirectory *ht, char *key) {
-  uint64_t h = hash(key, strlen(key)) % ht->capa;
-  for (size_t i = 0; i < ht->capa && ht->items[h].occupied &&
-                     strcmp(key, ht->items[h].objname) != 0;
-       ++i) {
-    h = (h + 1) % ht->capa;
-  }
-  if (ht->items[h].occupied) {
-    if (strcmp(key, ht->items[h].objname) != 0) {
-      fprintf(stderr, "Hash table overflow\n");
+  if (map->items[idx].occupied) {
+    if (strcmp(key, map->items[idx].objname) != 0) {
+      fprintf(stderr, "Hash map overflow\n");
       exit(EXIT_FAILURE);
     }
-    printf("This key has already been added\n");
+    printf("Keys collide\n");
   } else {
-    strcpy(ht->items[h].objname, key);
-    ht->items[h].occupied = true;
-    ht->cnt++;
+    strcpy(map->items[idx].objname, key);
+    map->cnt++;
+    map->items[idx].occupied = true;
   }
 }
 
-uint64_t hash_find(PageDirectory *ht, char *key) {
-  uint64_t h = hash(key, strlen(key)) % ht->capa;
-  for (size_t i = 0; i < ht->capa && ht->items[h].occupied &&
-                     !(strcmp(key, ht->items[h].objname) == 0);
-       i++) {
-    h = (h + 1) % ht->capa;
+void hashmap_extend(HashMap *map, double factor) {
+  assert(factor >= 1);
+  map->capa *= factor;
+  // map->items = realloc(map->items, map->capa * sizeof(*map->items));
+  KV *temp = map->items;
+  size_t temp_cnt = map->cnt;
+  map->items = calloc(1, map->capa * sizeof(*map->items));
+  map->cnt = 0;
+  for (size_t i = 0; i < temp_cnt; i++) {
+    if (temp[i].deleted || strlen(temp[i].objname) == 0) {
+      continue;
+    }
+    hashmap_insert(map, temp[i].objname);
   }
-  if (!ht->items[h].occupied) {
+  free(temp);
+}
+
+uint64_t hashmap_find(HashMap *map, char *key) {
+  unsigned long idx = hash(key) % map->capa;
+  for (size_t i = 0; i < map->capa && map->items[idx].occupied &&
+                     strcmp(map->items[idx].objname, key) != 0;
+       i++) {
+    idx = (idx + 1) & (map->capa - 1);
+  }
+  if (!map->items[idx].occupied) {
+    // printf("Key not found\n");
     return NULL;
   }
-  if (ht->items[h].occupied && strcmp(ht->items[h].objname, key) == 0) {
-    return h;
+  if (map->items[idx].occupied && strcmp(map->items[idx].objname, key) == 0) {
+    return idx;
   }
-
   return NULL;
 }
 
-size_t pd_todisk(PageDirectory *pd, char *filename) {
-  ToDiskBuf buf = {0};
-  todiskbuf_append(buf, pd, sizeof(*pd) - sizeof(KV *));
-  for (size_t i = 0; i < pd->capa; i++) {
-    todiskbuf_append(buf, &pd->items[i], sizeof(KV) - sizeof(uint64_t *));
-    todiskbuf_append(buf, pd->items[i].usedpageno.items,
-                     pd->items[i].usedpageno.cnt * sizeof(uint64_t));
+uint64_t hashmap_append(HashMap *map, char *key) {
+  if (map->cnt >= map->capa) {
+    if (map->capa == 0) {
+      map->capa = 256;
+    } else {
+      hashmap_extend(map, 2);
+    }
   }
-  int fd = open(filename, O_CREAT | O_RDWR | S_IRUSR | S_IWUSR, 0755);
-  if (fd == -1) {
-    fd = open(filename, O_RDWR | S_IRUSR | S_IWUSR | O_TRUNC, 0755);
-    errno = 0;
-  }
-
-  assert(fd >= 0);
-
-  ssize_t written = write(fd, buf.data, buf.used);
-
-  assert(written >= 0);
-  close(fd);
-
-  free(buf.data);
-  return written;
+  hashmap_insert(map, key);
 }
 
-PageDirectory pd_fromdisk(char *filename) {
-  struct stat statbuf;
+void hashmap_init(HashMap *map, size_t bucket) {
+  map->items = calloc(1, sizeof(KV) * bucket);
+  map->capa = bucket;
+}
 
-  size_t capa = 0;
-  PageDirectory pd = {0};
-
-  int fd = open(filename, O_CREAT | O_RDWR | S_IRUSR | S_IWUSR, 0755);
-  if (fd == -1) {
-    fd = open(filename, O_RDWR | S_IRUSR | S_IWUSR, 0755);
-    errno = 0;
+void hashmap_free(HashMap *map) {
+  for (size_t i = 0; i < map->capa; i++) {
+    free(map->items[i].pageno);
   }
+  free(map->items);
+}
 
-  assert(fd >= 0);
-
-  int res = fstat(fd, &statbuf);
-  assert(res == 0);
-  char data[statbuf.st_size];
-  // char *data = calloc(1, statbuf.st_size);
-  ssize_t readed = read(fd, data, statbuf.st_size);
-  assert(readed >= 0);
-
-  close(fd);
-
-  char *dptr = data; // sliding pointer
-
-  memcpy(&capa, dptr, sizeof(pd.capa));
-  hash_init(&pd, capa);
-  dptr = dptr + sizeof(pd.capa);
-  dptr = dptr + sizeof(pd.cnt);
-  for (size_t i = 0; i < pd.capa; i++) {
-    char objname[OBJ_NAME_LEN];
-    memcpy(objname, dptr, OBJ_NAME_LEN);
-    if (strlen(objname) == 0) {
-      dptr = dptr + sizeof(KV) - sizeof(uint64_t *);
-      continue;
-    }
-    dptr = dptr + OBJ_NAME_LEN;
-    hash_append(&pd, objname); // case sensitive
-    int hashidx = hash(objname, strlen(objname)) % pd.capa;
-    dptr = dptr + sizeof(KV) - OBJ_NAME_LEN - sizeof(UsedPageNO);
-    dptr = dptr + sizeof(size_t);
-
-    size_t arrcnt = 0;
-    memcpy(&arrcnt, dptr, sizeof(size_t));
-    dptr = dptr + sizeof(pd.items[hashidx].usedpageno.cnt);
-
-    for (size_t j = 0; j < arrcnt; j++) {
-      uint64_t pageno;
-      memcpy(&pageno, dptr, sizeof(uint64_t));
-      dptr = dptr + sizeof(uint64_t);
-      UsedPageAppend(&pd.items[hashidx].usedpageno, pageno);
-    }
+void hashmap_print(HashMap *map) {
+  for (size_t i = 0; i < map->capa; i++) {
+    unsigned long h = hash(map->items[i].objname);
+    printf("hash: 0x%024lX | idx: %lu | key: %s | deleted: %d\n", h, i,
+           map->items[i].objname, map->items[i].deleted);
   }
-  return pd;
+}
+
+void hashmap_delete(HashMap *map, char *key) {
+  unsigned long idx = hashmap_find(map, key);
+  if ((void *)idx == NULL) {
+    return;
+  }
+  map->items[idx].deleted = true;
+  map->items[idx].capa = 0;
+  map->items[idx].cnt = 0;
+  memset(map->items[idx].objname, 0, sizeof(map->items[idx].objname));
+  free(map->items[idx].pageno);
 }

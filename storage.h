@@ -21,87 +21,28 @@
 #define BITTEST(a, b) ((a)[BITSLOT(b)] & BITMASK(b))
 #define BITNSLOTS(nb) ((nb + CHAR_BIT - 1) / CHAR_BIT)
 
-// page directory
-typedef struct {
-  size_t capa;
-  size_t cnt;
-  uint64_t *items;
-} UsedPageNO;
+// Hash map
 
 typedef struct {
   char objname[OBJ_NAME_LEN];
   bool occupied;
-  UsedPageNO usedpageno;
+  bool deleted;
+  size_t capa;
+  size_t cnt;
+  uint64_t *pageno;
 } KV;
 
 typedef struct {
   size_t capa;
   size_t cnt;
   KV *items;
-} PageDirectory;
+} HashMap;
 
-typedef struct {
-  size_t capa;
-  size_t used;
-  char *data;
-} ToDiskBuf;
-
-#define hash_init(ht, cap)                                                     \
-  do {                                                                         \
-    (ht)->items = calloc(1, sizeof(*(ht)->items) * cap);                       \
-    (ht)->cnt = 0;                                                             \
-    (ht)->capa = cap;                                                          \
-  } while (0)
-
-void UsedPageAppend(UsedPageNO *arr, uint64_t pageno);
-uint64_t hash(char *s, size_t len);
-void hash_append(PageDirectory *ht, char *key);
-
-#define todiskbuf_append(buf, ptr, size)                                       \
-  do {                                                                         \
-    if (buf.used + size >= buf.capa) {                                         \
-      if (buf.capa == 0) {                                                     \
-        buf.capa = 256;                                                        \
-      } else {                                                                 \
-        buf.capa *= 2;                                                         \
-      }                                                                        \
-      buf.data = realloc(buf.data, buf.capa);                                  \
-    }                                                                          \
-    memcpy(buf.data + buf.used, ptr, size);                                    \
-    buf.used += size;                                                          \
-  } while (0)
-
-size_t pd_todisk(PageDirectory *pd, char *filename);
-PageDirectory pd_fromdisk(char *filename);
-
-typedef enum {
-  TABLE_PAGE,
-  INDEX_PAGE,
-  ROOT_PAGE,
-  PAGETYPECNT,
-} PageType;
-
-typedef struct {
-  unsigned long long pageno;
-  unsigned long long pagecnt;
-  PageType pagetype;
-
-  char data[DB_PAGE_SIZE - sizeof(unsigned long long) * 3];
-} RootPage;
-
-// data page
-typedef struct {
-  // header
-  unsigned long long pageno; // start from 0;
-  unsigned long long slotcnt;
-  unsigned short freespace; // in bytes
-  PageType pagetype;
-
-  // data section
-  char data[DB_PAGE_SIZE - sizeof(unsigned long long) * 3];
-} Page;
-
-typedef struct {
-  unsigned short slotno;
-  unsigned short offset;
-} Slot;
+unsigned long hash(char *str);
+void hashmap_extend(HashMap *map, double factor);
+uint64_t hashmap_append(HashMap *map, char *key);
+uint64_t hashmap_find(HashMap *map, char *key);
+void hashmap_init(HashMap *map, size_t bucket);
+void hashmap_free(HashMap *map);
+void hashmap_print(HashMap *map);
+void hashmap_delete(HashMap *map, char *key);
