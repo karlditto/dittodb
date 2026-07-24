@@ -57,6 +57,12 @@ int main_parser(int argc, char *argv[]) {
   return 0;
 }
 
+int cmp(const void *a, const void *b) {
+  const KV *akv = a;
+  const KV *bkv = b;
+  return bkv->cnt - akv->cnt;
+}
+
 int main() {
   HashMap ht = {0};
   hashmap_init(&ht, 2);
@@ -73,8 +79,9 @@ int main() {
   char *s = buf;
   unsigned long word_cnt = 0;
   char word_buf[33] = {0};
+  int flag = 0;
   while (*s) {
-    // if (ht.cnt >= 5) {
+    // if (ht.cnt >= 16) {
     //   break;
     // }
 
@@ -85,20 +92,34 @@ int main() {
     } else {
       char *s2 = s;
       while (true) {
-        if (isspace(*s) != 0) {
+        if (isspace(*s) != 0 || *s == ',' || *s == '.' || *s == ';' ||
+            *s == ':' || *s == '?' || *s == '!') {
           int len = s - s2;
+          memset(word_buf, 0, sizeof(word_buf));
           sprintf(word_buf, "%.*s", len, s2);
           // printf("%s\n", word_buf);
           // printf("%lu ", word_cnt);
           // printf("0x%08lX: ", hash(word_buf, strlen(word_buf)) % hashbucket);
           // printf("%lu: ", hash(word_buf, strlen(word_buf)) % hashbucket);
           // printf("%.*s\n", len, s2);
-          if (hashmap_find(&ht, word_buf)) {
+
+          if (hashmap_find(&ht, word_buf) != -1) {
+            int64_t found = hashmap_find(&ht, word_buf);
+            ht.items[found].cnt++;
             word_cnt++;
             break;
           }
+
           hashmap_append(&ht, word_buf);
+          int64_t insert = hashmap_find(&ht, word_buf);
+          ht.items[insert].cnt++;
           word_cnt++;
+          if (flag == 0) {
+            if (hashmap_find(&ht, "the") != -1) {
+              hashmap_delete(&ht, "the");
+              flag = 1;
+            }
+          }
           break;
         }
         s++;
@@ -108,16 +129,17 @@ int main() {
   }
 
   // hashmap_print(&ht);
-  // hashmap_print(&ht);
+  //
+  KV *sorted = malloc(sizeof(KV) * ht.capa);
+  memcpy(sorted, ht.items, sizeof(KV) * ht.capa);
+  qsort(sorted, ht.capa, sizeof(KV), cmp);
 
-  int cnt = 0;
   for (size_t i = 0; i < ht.capa; i++) {
-    if (strlen(ht.items[i].objname) != 0) {
-      cnt++;
-    }
+    printf("key:%-20s --> cnt:%ld\n", sorted[i].objname, sorted[i].cnt);
   }
-  printf("%d\n", cnt);
 
+  free(sorted);
   hashmap_free(&ht);
+
   return 0;
 }

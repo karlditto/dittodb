@@ -32,6 +32,8 @@ typedef struct {
   uint64_t *pageno;
 } KV;
 
+void kv_init(KV *);
+
 typedef struct {
   size_t capa;
   size_t cnt;
@@ -40,8 +42,8 @@ typedef struct {
 
 unsigned long hash(char *str);
 void hashmap_extend(HashMap *map, double factor);
-uint64_t hashmap_append(HashMap *map, char *key);
-uint64_t hashmap_find(HashMap *map, char *key);
+int64_t hashmap_append(HashMap *map, char *key);
+int64_t hashmap_find(HashMap *map, char *key);
 void hashmap_init(HashMap *map, size_t bucket);
 void hashmap_free(HashMap *map);
 void hashmap_print(HashMap *map);

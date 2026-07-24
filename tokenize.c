@@ -1,7 +1,6 @@
 #include "sqldb.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/ucontext.h>
 #include <time.h>
 #include <unistd.h>
 
