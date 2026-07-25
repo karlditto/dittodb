@@ -32,11 +32,23 @@ typedef struct {
   uint64_t *pageno;
 } KV;
 
-void kv_init(KV *);
+#define KV_append(kv, page)                                                    \
+  do {                                                                         \
+    if (kv.cnt >= kv.capa) {                                                   \
+      if (kv.capa == 0) {                                                      \
+        kv.capa = 256;                                                         \
+      } else                                                                   \
+        kv.capa *= 2;                                                          \
+      kv.pageno = realloc(kv.pageno, sizeof(*kv.pageno) * kv.capa);            \
+    }                                                                          \
+    kv.pageno[kv.cnt++] = page;                                                \
+  } while (0)
 
 typedef struct {
   size_t capa;
-  size_t cnt;
+  size_t cnt; // this count cannot truthfully depict used bucket in the hashmap.
+              // if immediately after hashmap_extend(&map, 1), then cnt states
+              // truth;
   KV *items;
 } HashMap;
 

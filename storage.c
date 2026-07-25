@@ -40,6 +40,7 @@ static int64_t hashmap_insert(HashMap *map, char *key) {
         printf("Keys collide\n");
         return -1;
       } else {
+        assert(strlen(key) < sizeof(map->items[idx].objname));
         strcpy(map->items[idx].objname, key);
         map->items[idx].deleted = false;
         return idx;
@@ -64,11 +65,12 @@ static int64_t hashmap_insert(HashMap *map, char *key) {
 
 void hashmap_extend(HashMap *map, double factor) {
   assert(factor >= 1);
+  KV *temp = calloc(1, sizeof(*map->items) * map->capa);
+  memcpy(temp, map->items, sizeof(*map->items) * map->capa);
+  free(map->items);
+  map->items = NULL;
   size_t old_capa = map->capa;
   map->capa *= factor;
-  // map->items = realloc(map->items, map->capa * sizeof(*map->items));
-  KV *temp = map->items;
-  size_t temp_cnt = map->cnt;
   map->items = calloc(1, map->capa * sizeof(*map->items));
   map->cnt = 0;
   for (size_t i = 0; i < old_capa; i++) {
@@ -80,7 +82,18 @@ void hashmap_extend(HashMap *map, double factor) {
     }
     hashmap_insert(map, temp[i].objname);
     int64_t idx = hashmap_find(map, temp[i].objname);
+    map->items[idx].capa = temp[i].capa;
     map->items[idx].cnt = temp[i].cnt;
+    map->items[idx].pageno = calloc(1, sizeof(*temp[i].pageno) * temp[i].capa);
+    memcpy(map->items[idx].pageno, temp[i].pageno,
+           temp[i].capa * sizeof(*temp[i].pageno));
+    // for (size_t j = 0; j < temp[i].cnt; j++) {
+    //   KV_append(map->items[idx], temp[i].pageno[j]);
+    // }
+    if (temp[i].pageno == NULL) {
+      continue;
+    }
+    free(temp[i].pageno);
   }
   free(temp);
 }
@@ -122,6 +135,9 @@ void hashmap_init(HashMap *map, size_t bucket) {
 
 void hashmap_free(HashMap *map) {
   for (size_t i = 0; i < map->capa; i++) {
+    if (map->items[i].pageno == NULL) {
+      continue;
+    }
     free(map->items[i].pageno);
   }
   free(map->items);
@@ -132,12 +148,18 @@ void hashmap_print(HashMap *map) {
     unsigned long h = hash(map->items[i].objname);
     printf("hash: 0x%024lX | idx: %-3lu | key: %-10s | deleted: %d\n", h, i,
            map->items[i].objname, map->items[i].deleted);
+    printf("Pageno: {");
+    for (size_t j = 0; j < map->items[i].cnt; j++) {
+      printf("%ld,", map->items[i].pageno[j]);
+    }
+    printf("}\n");
   }
 }
 
 void hashmap_delete(HashMap *map, char *key) {
   int64_t idx = hashmap_find(map, key);
   if (idx < 0) {
+    // printf("The key you want to delete doesnt exist\n");
     return;
   }
   map->items[idx].deleted = true;
@@ -145,4 +167,5 @@ void hashmap_delete(HashMap *map, char *key) {
   map->items[idx].cnt = 0;
   memset(map->items[idx].objname, 0, strlen(map->items[idx].objname));
   free(map->items[idx].pageno);
+  map->items[idx].pageno = NULL;
 }

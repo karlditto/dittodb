@@ -1,2 +1,2 @@
 hashmap:hashmap.c
-	cc -o hashmap hashmap.c ../storage.c -I../
+	cc -ggdb -o hashmap hashmap.c ../storage.c -I../
