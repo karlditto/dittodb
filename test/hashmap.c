@@ -1,4 +1,4 @@
-#include "../storage.h"
+#include "../hashmap.h"
 #include <bits/time.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -130,6 +130,5 @@ static int test_performance() {
 
 int main() {
   puts("hello world");
-  test_performance();
   return 0;
 }

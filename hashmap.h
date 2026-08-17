@@ -6,10 +6,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
-#define DB_PAGE_SIZE 4 * 1024 // in bytes
-#define OBJ_NAME_LEN 128
+
+#ifndef HASHMAP_H
+#define HASHMAP_H
+
+#define OBJ_NAME_LEN 32
 #define HASH_BUCKET_SIZE 1024 * 53
 
 // Bit array
@@ -36,7 +40,7 @@ typedef struct {
   do {                                                                         \
     if (kv.cnt >= kv.capa) {                                                   \
       if (kv.capa == 0) {                                                      \
-        kv.capa = 256;                                                         \
+        kv.capa = 8;                                                           \
       } else                                                                   \
         kv.capa *= 2;                                                          \
       kv.pageno = realloc(kv.pageno, sizeof(*kv.pageno) * kv.capa);            \
@@ -60,3 +64,7 @@ void hashmap_init(HashMap *map, size_t bucket);
 void hashmap_free(HashMap *map);
 void hashmap_print(HashMap *map);
 void hashmap_delete(HashMap *map, char *key);
+void hashmap_todisk(HashMap *map, char *filename);
+void hashmap_fromdisk(HashMap *map, char *filename);
+
+#endif // !HASHMAP_H

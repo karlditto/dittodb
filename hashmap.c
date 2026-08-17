@@ -1,11 +1,13 @@
-#include "storage.h"
+#include "hashmap.h"
 #include <assert.h>
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 // dynamic hash map implemented with open addressing
@@ -141,6 +143,8 @@ void hashmap_free(HashMap *map) {
     free(map->items[i].pageno);
   }
   free(map->items);
+  map->capa = 0;
+  map->cnt = 0;
 }
 
 void hashmap_print(HashMap *map) {
@@ -168,4 +172,41 @@ void hashmap_delete(HashMap *map, char *key) {
   memset(map->items[idx].objname, 0, strlen(map->items[idx].objname));
   free(map->items[idx].pageno);
   map->items[idx].pageno = NULL;
+}
+
+void hashmap_todisk(HashMap *map, char *filename) {
+  int fd = open(filename, O_CREAT | O_TRUNC | O_RDWR,
+                S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+  assert(fd >= 0);
+  ssize_t written = write(fd, map, sizeof(*map) - sizeof(map->items));
+  assert(written >= 0);
+  for (size_t i = 0; i < map->capa; i++) {
+    written = write(fd, &map->items[i],
+                    sizeof(map->items[i]) - sizeof(map->items[i].pageno));
+    assert(written >= 0);
+    written = write(
+        fd, map->items[i].pageno,
+        map->items[i].cnt *
+            sizeof(*map->items[i].pageno)); // write only used part to memory to
+                                            // minimize disk usage
+  }
+}
+
+void hashmap_fromdisk(HashMap *map, char *filename) {
+  int fd = open(filename, O_RDONLY);
+  assert(fd > 0);
+  ssize_t readed = read(fd, map, sizeof(*map) - sizeof(map->items));
+  assert(readed >= 0);
+  map->items = calloc(1, sizeof(KV) * map->capa);
+  assert(map->items);
+  for (size_t i = 0; i < map->capa; i++) {
+    readed = read(fd, &map->items[i], sizeof(KV) - sizeof(uint64_t *));
+    assert(readed >= 0);
+    map->items[i].pageno =
+        map->items[i].capa ? calloc(1, sizeof(uint64_t) * map->items[i].capa)
+                           : NULL;
+    readed =
+        read(fd, map->items[i].pageno, sizeof(uint64_t) * map->items[i].cnt);
+    assert(readed >= 0);
+  }
 }

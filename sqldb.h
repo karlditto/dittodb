@@ -1,5 +1,5 @@
+#include "hashmap.h"
 #include "region.h"
-#include "storage.h"
 #include <assert.h>
 #include <ctype.h>
 #include <inttypes.h>

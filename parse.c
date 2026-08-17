@@ -311,8 +311,9 @@ Node *parse_expr(Token **token, int min_bp) {
     assert(strcasecmp((*token)->str, ")") == 0);
   }
   assert(lhs->type.exacttype == ADD || lhs->type.exacttype == SUB ||
-         lhs->type.exacttype == ATOM ||
-         lhs->type.exacttype == MUL); // MUL as asterisk in select * from table
+         lhs->type.exacttype == ATOM || lhs->type.exacttype == MUL ||
+         lhs->type.exacttype ==
+             COMMA); // MUL as asterisk in select * from table
   while (true) {
     // 1 + 2 * 3
     Node *operator = node_from_token((*token)->next);
@@ -385,9 +386,6 @@ Node *parse(Token *token) {
       cur_node = last(cur_node->childs);
       continue;
     } else {
-      // append(root->childs, node);
-      // cur_node = last(root->childs);
-      // node_free(node);
       Node *expr = parse_expr(&token, 0);
       append(cur_node->childs, expr);
       cur_node = root;
