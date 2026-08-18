@@ -77,7 +77,7 @@ static size_t match_keyword(const char *s) {
   regmatch_t match[NUM_MATCHES];
   const char *pattern =
       "^(create|select|insert|into|delete|update|from|and|or|is|"
-      "not|null|where|like|table|index|order|by|values)\\b";
+      "not|null|where|like|table|index|order|by|values|on)\\b";
 
   if (regcomp(&re, pattern, REG_ICASE | REG_EXTENDED)) {
     perror("regex compilation failed");

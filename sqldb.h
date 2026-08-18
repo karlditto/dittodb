@@ -122,6 +122,7 @@ typedef enum {
   ORDER,
   BY,
   VALUES,
+  ON,
 
   // expression type
   ADD,

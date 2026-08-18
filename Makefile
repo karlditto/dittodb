@@ -8,4 +8,4 @@ debug:sql
 	gf2 ./sql
 
 parser:
-	cc -D SQLPARSER -ggdb -Wall -Wextra -o sql *.c -I./
+	cc -U MAIN -D SQLPARSER -ggdb -Wall -Wextra -o sql *.c -I./

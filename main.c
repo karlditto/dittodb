@@ -153,10 +153,12 @@ int main_hashtable() {
   return 0;
 }
 
+#ifndef SQLPARSER
+
 #include "buffercache.h"
 #include "pokemon.h"
 
-int main1() {
+int main() {
   BufferCache buffer = {0};
   hashmap_init(&buffer.pagedir, 8);
   hashmap_init(&buffer.pagetable, 4);
@@ -250,3 +252,4 @@ int main1() {
   free(buffer.buffer);
   return 0;
 }
+#endif /* ifndef SQLPARSER */
