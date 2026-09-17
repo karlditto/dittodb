@@ -317,6 +317,11 @@ Node *parse_select(Token **token, int min_bp) {
     }
   }
 
+  if (node_from_token(*token)->type.nodetype != EXPRESSION) {
+    fprintf(stderr, "[ERROR] at SELECT parsing phase\n");
+    fprintf(stderr, "[ERROR] expr expected, but get \"%s\"\n", (*token)->str);
+    return NULL;
+  }
   while (true) {
     Node *operator = node_from_token((*token)->next);
 
@@ -394,6 +399,11 @@ Node *parse_from(Token **token, int min_bp) {
     }
   }
 
+  if (node_from_token(*token)->type.nodetype != EXPRESSION) {
+    fprintf(stderr, "[ERROR] at FROM parsing phase\n");
+    fprintf(stderr, "[ERROR] expr expected, but get \"%s\"\n", (*token)->str);
+    return NULL;
+  }
   while (true) {
     Node *operator = node_from_token((*token)->next);
 
@@ -447,7 +457,7 @@ Node *parse_create(Token **token, int min_bp) {
   // deal with parentheses
   if (lhs->type.exacttype == LPAREN) {
     *token = (*token)->next; // skip "("
-    lhs = parse_select(token, 0);
+    lhs = parse_create(token, 0);
     if (!lhs) {
       return NULL;
     }
@@ -460,6 +470,27 @@ Node *parse_create(Token **token, int min_bp) {
     }
   }
 
+  Node *colname = node_from_token(*token);
+  if (colname->token->type == IDENTIFIER) {
+    *token = (*token)->next; // token to datatype
+    Node *datatype = node_from_token(*token);
+    if (datatype->type.exacttype == DTYPE) {
+      append(datatype->childs, lhs);
+      datatype->expr_lhs = lhs;
+      lhs = datatype;
+    } else {
+      fprintf(stderr, "[ERROR] at CREATE parsing phase\n");
+      fprintf(stderr, "[ERROR] datatype expected, but get \"%s\"\n",
+              (*token)->str);
+      return NULL;
+    }
+  }
+
+  if (node_from_token(*token)->type.nodetype != EXPRESSION) {
+    fprintf(stderr, "[ERROR] at CREATE parsing phase\n");
+    fprintf(stderr, "[ERROR] expr expected, but get \"%s\"\n", (*token)->str);
+    return NULL;
+  }
   while (true) {
     Node *operator = node_from_token((*token)->next);
 
@@ -493,7 +524,7 @@ Node *parse_create(Token **token, int min_bp) {
     }
     *token = (*token)->next;
     *token = (*token)->next; // pointer moves to rhs atom
-    Node *rhs = parse_select(token, r_bp);
+    Node *rhs = parse_create(token, r_bp);
     if (!rhs) {
       return NULL;
     }
