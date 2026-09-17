@@ -1,4 +1,4 @@
-char *pokemon[] = {
+char const *pokemon[] = {
     "bulbasaur",    "ivysaur",      "venusaur",     "charmander",
     "charmeleon",   "charizard",    "squirtle",     "wartortle",
     "blastoise",    "caterpie",     "metapod",      "butterfree",

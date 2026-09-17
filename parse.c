@@ -280,77 +280,80 @@ static Node *node_from_token(Token *token) {
 //   bracket [a   +] [b   *   c]  +    d] [a   +][[b   *   c]  +]   d [a   +][[b
 //   *   c]  +    d] [a   +][ b   *   c   +    d] [a   +   b   *   c   +    d]
 //   then the expression is solved
-Node *parse_expr(Token **token, int min_bp) {
-  Node *lhs = node_from_token(*token);
+//
+//
+// select a+1,b,c
+Node *parse_select(Token **token, int min_bp) {
+  Node *lhs = node_from_token(*token); // select a+1,b,c
+                                       //        ^
+  // case: -1, +2
   if (lhs->type.exacttype == ADD || lhs->type.exacttype == SUB) {
-    // prefix operator
-    // - ( 1 + 2 )
-    *token = (*token)->next;
-    // - ( 1 + 2 )
-    //   ^
-    Node *prefix_operand = node_from_token(*token);
-    if (prefix_operand->type.exacttype == ADD ||
-        prefix_operand->type.exacttype == SUB) {
-      // --5 invalid
-      // 1+-5 valid
-      fprintf(stderr, "%s\n", "chained prefix operator not supported");
-      exit(EXIT_FAILURE);
+    Node *prefix_operator = node_from_token(*token); // case: -1
+                                                     //       ^
+    *token = (*token)->next;                         // -1
+                                                     //  ^
+    Node *prefix_operand = parse_select(token, 0);
+    if (!prefix_operand) {
+      return NULL;
     }
-    if (prefix_operand->type.exacttype == LPAREN) {
-      Node *paren_expr = parse_expr(token, 0);
-      append(lhs->childs, paren_expr);
-      lhs->expr_rhs = paren_expr;
-    } else {
-      append(lhs->childs, prefix_operand);
-      lhs->expr_rhs = prefix_operand;
-    }
+    append(prefix_operator->childs, prefix_operand);
+    prefix_operator->expr_lhs = prefix_operand;
+    lhs = prefix_operator;
   }
+
+  // deal with parentheses
   if (lhs->type.exacttype == LPAREN) {
-    // ( 1 + 2 ) * 3
-    *token = (*token)->next;
-    // ( 1 + 2 ) * 3
-    //   ^
-    // node_free(lhs);
-    lhs = parse_expr(token, 0);
-    *token = (*token)->next;
-    // ( 1 + 2 ) * 3
-    //         ^
-    assert(strcasecmp((*token)->str, ")") == 0);
+    *token = (*token)->next; // skip "("
+    lhs = parse_select(token, 0);
+    if (!lhs) {
+      return NULL;
+    }
+    *token = (*token)->next; // skip ")"
+    if (strcasecmp((*token)->str, ")") != 0) {
+      fprintf(stderr, "[ERROR] at SELECT parsing phase\n");
+      fprintf(stderr, "[ERROR] \")\" expected, but get \"%s\"\n",
+              (*token)->str);
+      return NULL;
+    }
   }
-  assert(lhs->type.exacttype == ADD || lhs->type.exacttype == SUB ||
-         lhs->type.exacttype == ATOM || lhs->type.exacttype == MUL ||
-         lhs->type.exacttype ==
-             COMMA); // MUL as asterisk in select * from table
+
   while (true) {
-    // 1 + 2 * 3
     Node *operator = node_from_token((*token)->next);
-    if (operator->type.exacttype == DTYPE) {
-      append(lhs->childs, operator);
-      lhs->expr_lhs = operator;
-      *token = (*token)->next;
-      operator = node_from_token((*token)->next);
+
+    if (operator->type.exacttype == LPAREN) {
+      fprintf(stderr, "[ERROR] at SELECT parsing phase\n");
+      fprintf(stderr,
+              "[ERROR] This operator should not be used like this, current "
+              "token: \"%s\"\n",
+              operator->token->str);
+      return NULL;
     }
     if (operator->type.exacttype == RPAREN) {
       break;
     }
-    if (operator->token->type == EOQ || operator->type.nodetype == STATEMMENT ||
-        operator->type.nodetype == CLAUSE) {
+
+    if (operator->type.nodetype != EXPRESSION) {
       break;
     }
 
-    assert(operator->token->type == OPERATOR);
+    if (operator->token->type != OPERATOR) {
+      fprintf(stderr, "[ERROR] at SELECT parsing phase\n");
+      fprintf(stderr, "[ERROR] operator expected at token: \"%s\"\n",
+              operator->token->str);
+      return NULL;
+    } // stop if not expression
+
     int l_bp = bindpower_lookup(operator->token).lhs;
     int r_bp = bindpower_lookup(operator->token).rhs;
     if (l_bp < min_bp) {
       break;
     }
-    // 1 + 2 * 3
-    //   ^
     *token = (*token)->next;
-    // 1 + 2 * 3
-    //     ^
-    *token = (*token)->next;
-    Node *rhs = parse_expr(token, r_bp);
+    *token = (*token)->next; // pointer moves to rhs atom
+    Node *rhs = parse_select(token, r_bp);
+    if (!rhs) {
+      return NULL;
+    }
     append(operator->childs, lhs);
     append(operator->childs, rhs);
     operator->expr_lhs = lhs;
@@ -361,201 +364,166 @@ Node *parse_expr(Token **token, int min_bp) {
   return lhs;
 }
 
-Node *parse_expr2(ExactType type, Token **token, int min_bp) {
-  switch (type) {
+Node *parse_from(Token **token, int min_bp) {
+  Node *lhs = node_from_token(*token);
 
-  case TABLE: { // add bracket to avoid annoying warning msg
-    Node *lhs = node_from_token(*token);
-
-    // deal with parentheses
-    if (lhs->type.exacttype == LPAREN) {
-      *token = (*token)->next; // skip "("
-      lhs = parse_expr2(TABLE, token, 0);
-      *token = (*token)->next; // skip ")"
-      if (strcasecmp((*token)->str, ")") != 0) {
-        fprintf(stderr, "syntax error at %s:%d\n", __FILE__, __LINE__);
-        return NULL;
-      }
+  if (lhs->type.exacttype == ADD || lhs->type.exacttype == SUB) {
+    Node *prefix_operator = node_from_token(*token);
+    *token = (*token)->next;
+    Node *prefix_operand = parse_from(token, 0);
+    if (!prefix_operand) {
+      return NULL;
     }
-
-    while (true) {
-      Node *operator = node_from_token((*token)->next);
-
-      if (operator->type.exacttype == DTYPE) {
-
-        if (strcasecmp(operator->token->str, "CHAR") == 0) {
-          append(operator->childs, lhs);
-          operator->expr_lhs = lhs;
-          *token = (*token)->next; // char(32)
-                                   // ^
-          *token = (*token)->next; // char(32)
-                                   //     ^
-          *token = (*token)->next; // char(32)
-                                   //      ^
-          Node *size = node_from_token(*token);
-          append(operator->childs, size);
-          operator->expr_rhs = size;
-          lhs = operator;
-          *token = (*token)->next;                    // char(32)
-                                                      //        ^
-          operator = node_from_token((*token)->next); // ","
-        } else {
-          append(operator->childs, lhs);
-          operator->expr_lhs = lhs;
-          lhs = operator;
-          *token = (*token)->next; // pointer moves to datatype
-          operator = node_from_token((*token)->next);
-        }
-      }
-
-      if (operator->type.exacttype == RPAREN) {
-        break;
-      }
-
-      if (operator->type.nodetype != EXPRESSION) {
-        break;
-      }
-
-      if (operator->token->type != OPERATOR) {
-        fprintf(stderr, "syntax error at %s:%d\n", __FILE__, __LINE__);
-        return NULL;
-      } // stop if not expression
-
-      int l_bp = bindpower_lookup(operator->token).lhs;
-      int r_bp = bindpower_lookup(operator->token).rhs;
-      if (l_bp < min_bp) {
-        break;
-      }
-      *token = (*token)->next;
-      *token = (*token)->next; // pointer moves to rhs atom
-      Node *rhs = parse_expr2(TABLE, token, r_bp);
-      append(operator->childs, lhs);
-      append(operator->childs, rhs);
-      operator->expr_lhs = lhs;
-      operator->expr_rhs = rhs;
-
-      lhs = operator;
-    }
-    return lhs;
-    break;
+    append(prefix_operator->childs, prefix_operand);
+    prefix_operator->expr_lhs = prefix_operand;
+    lhs = prefix_operator;
   }
 
+  // deal with parentheses
+  if (lhs->type.exacttype == LPAREN) {
+    *token = (*token)->next; // skip "("
+    lhs = parse_from(token, 0);
+    if (!lhs) {
+      return NULL;
+    }
+    *token = (*token)->next; // skip ")"
+    if (strcasecmp((*token)->str, ")") != 0) {
+      fprintf(stderr, "[ERROR] at FROM parsing phase\n");
+      fprintf(stderr, "\")\" expected, but get \"%s\"\n", (*token)->str);
+      return NULL;
+    }
+  }
+
+  while (true) {
+    Node *operator = node_from_token((*token)->next);
+
+    if (operator->type.exacttype == LPAREN) {
+      fprintf(stderr, "[ERROR] at FROM parsing phase\n");
+      fprintf(stderr,
+              "[ERROR] This operator should not be used like this, current "
+              "token: \"%s\"\n",
+              operator->token->str);
+      return NULL;
+    }
+    if (operator->type.exacttype == RPAREN) {
+      break;
+    }
+
+    if (operator->type.nodetype != EXPRESSION) {
+      break;
+    }
+
+    if (operator->type.exacttype != COMMA) {
+      fprintf(stderr, "[ERROR] at FROM parsing phase\n");
+      fprintf(stderr, "[ERROR] operator \",\" expected at token: \"%s\"\n",
+              operator->token->str);
+      return NULL;
+    }
+
+    int l_bp = bindpower_lookup(operator->token).lhs;
+    int r_bp = bindpower_lookup(operator->token).rhs;
+    if (l_bp < min_bp) {
+      break;
+    }
+    *token = (*token)->next;
+    *token = (*token)->next; // pointer moves to rhs atom
+    Node *rhs = parse_from(token, r_bp);
+    if (!rhs) {
+      return NULL;
+    }
+    append(operator->childs, lhs);
+    append(operator->childs, rhs);
+    operator->expr_lhs = lhs;
+    operator->expr_rhs = rhs;
+
+    lhs = operator;
+  }
+  return lhs;
+}
+
+Node *parse_create(Token **token, int min_bp) {
+  Node *lhs = node_from_token(*token);
+
+  // deal with parentheses
+  if (lhs->type.exacttype == LPAREN) {
+    *token = (*token)->next; // skip "("
+    lhs = parse_select(token, 0);
+    if (!lhs) {
+      return NULL;
+    }
+    *token = (*token)->next; // skip ")"
+    if (strcasecmp((*token)->str, ")") != 0) {
+      fprintf(stderr, "[ERROR] at SELECT parsing phase\n");
+      fprintf(stderr, "[ERROR] \")\" expected, but get \"%s\"\n",
+              (*token)->str);
+      return NULL;
+    }
+  }
+
+  while (true) {
+    Node *operator = node_from_token((*token)->next);
+
+    if (operator->type.exacttype == LPAREN) {
+      fprintf(stderr, "[ERROR] at SELECT parsing phase\n");
+      fprintf(stderr,
+              "[ERROR] This operator should not be used like this, current "
+              "token: \"%s\"\n",
+              operator->token->str);
+      return NULL;
+    }
+    if (operator->type.exacttype == RPAREN) {
+      break;
+    }
+
+    if (operator->type.nodetype != EXPRESSION) {
+      break;
+    }
+
+    if (operator->type.exacttype != COMMA) {
+      fprintf(stderr, "[ERROR] at FROM parsing phase\n");
+      fprintf(stderr, "[ERROR] operator \",\" expected at token: \"%s\"\n",
+              operator->token->str);
+      return NULL;
+    }
+
+    int l_bp = bindpower_lookup(operator->token).lhs;
+    int r_bp = bindpower_lookup(operator->token).rhs;
+    if (l_bp < min_bp) {
+      break;
+    }
+    *token = (*token)->next;
+    *token = (*token)->next; // pointer moves to rhs atom
+    Node *rhs = parse_select(token, r_bp);
+    if (!rhs) {
+      return NULL;
+    }
+    append(operator->childs, lhs);
+    append(operator->childs, rhs);
+    operator->expr_lhs = lhs;
+    operator->expr_rhs = rhs;
+
+    lhs = operator;
+  }
+  return lhs;
+}
+
+Node *parse_expr(ExactType type, Token **token) {
+  switch (type) {
+
   case SELECT: { // add bracket to avoid annoying warning msg
-    Node *lhs = node_from_token(*token);
-
-    if (lhs->type.exacttype == ADD || lhs->type.exacttype == SUB) {
-      Node *prefix_operator = node_from_token(*token);
-      *token = (*token)->next;
-      Node *prefix_operand = parse_expr2(SELECT, token, 0);
-      append(prefix_operator->childs, prefix_operand);
-      prefix_operator->expr_lhs = prefix_operand;
-      lhs = prefix_operator;
-    }
-
-    // deal with parentheses
-    if (lhs->type.exacttype == LPAREN) {
-      *token = (*token)->next; // skip "("
-      lhs = parse_expr2(SELECT, token, 0);
-      *token = (*token)->next; // skip ")"
-      if (strcasecmp((*token)->str, ")") != 0) {
-        fprintf(stderr, "syntax error at %s:%d\n", __FILE__, __LINE__);
-        return NULL;
-      }
-    }
-
-    while (true) {
-      Node *operator = node_from_token((*token)->next);
-
-      if (operator->type.exacttype == RPAREN) {
-        break;
-      }
-
-      if (operator->type.nodetype != EXPRESSION) {
-        break;
-      }
-
-      if (operator->token->type != OPERATOR) {
-        fprintf(stderr, "syntax error at %s:%d\n", __FILE__, __LINE__);
-        return NULL;
-      } // stop if not expression
-
-      int l_bp = bindpower_lookup(operator->token).lhs;
-      int r_bp = bindpower_lookup(operator->token).rhs;
-      if (l_bp < min_bp) {
-        break;
-      }
-      *token = (*token)->next;
-      *token = (*token)->next; // pointer moves to rhs atom
-      Node *rhs = parse_expr2(SELECT, token, r_bp);
-      append(operator->childs, lhs);
-      append(operator->childs, rhs);
-      operator->expr_lhs = lhs;
-      operator->expr_rhs = rhs;
-
-      lhs = operator;
-    }
-    return lhs;
+    return parse_select(token, 0);
     break;
   }
 
     // copypaste from select branch
   case FROM: { // add bracket to avoid annoying warning msg
-    Node *lhs = node_from_token(*token);
-
-    if (lhs->type.exacttype == ADD || lhs->type.exacttype == SUB) {
-      Node *prefix_operator = node_from_token(*token);
-      *token = (*token)->next;
-      Node *prefix_operand = parse_expr2(FROM, token, 0);
-      append(prefix_operator->childs, prefix_operand);
-      prefix_operator->expr_lhs = prefix_operand;
-      lhs = prefix_operator;
-    }
-
-    // deal with parentheses
-    if (lhs->type.exacttype == LPAREN) {
-      *token = (*token)->next; // skip "("
-      lhs = parse_expr2(FROM, token, 0);
-      *token = (*token)->next; // skip ")"
-      if (strcasecmp((*token)->str, ")") != 0) {
-        fprintf(stderr, "syntax error at %s:%d\n", __FILE__, __LINE__);
-        return NULL;
-      }
-    }
-
-    while (true) {
-      Node *operator = node_from_token((*token)->next);
-
-      if (operator->type.exacttype == RPAREN) {
-        break;
-      }
-
-      if (operator->type.nodetype != EXPRESSION) {
-        break;
-      }
-
-      if (operator->token->type != OPERATOR) {
-        fprintf(stderr, "syntax error at %s:%d\n", __FILE__, __LINE__);
-        return NULL;
-      } // stop if not expression
-
-      int l_bp = bindpower_lookup(operator->token).lhs;
-      int r_bp = bindpower_lookup(operator->token).rhs;
-      if (l_bp < min_bp) {
-        break;
-      }
-      *token = (*token)->next;
-      *token = (*token)->next; // pointer moves to rhs atom
-      Node *rhs = parse_expr2(FROM, token, r_bp);
-      append(operator->childs, lhs);
-      append(operator->childs, rhs);
-      operator->expr_lhs = lhs;
-      operator->expr_rhs = rhs;
-
-      lhs = operator;
-    }
-    return lhs;
+    return parse_from(token, 0);
     break;
   }
+
+  case CREATE:
+    return parse_create(token, 0);
+    break;
   }
 
   return NULL;
@@ -575,75 +543,22 @@ Node *parse(Token *token) {
 
       switch (node->type.exacttype) {
 
-      case CREATE:
-        cur_node = root;
-        append(cur_node->childs, node);
-        cur_node = last(cur_node->childs);
-        token = token->next; // skip "create"
-
-        node = node_from_token(token);
-        ExactType obj_typ;
-        if (node->type.nodetype != OBJECT) {
-          fprintf(stderr, "syntax error at %s:%d\n", __FILE__, __LINE__);
-          return NULL;
-        }
-        obj_typ = node->type.exacttype;
-        append(cur_node->childs, node);
-        cur_node = last(cur_node->childs);
-        token = token->next; // skip "table/index"
-
-        node = node_from_token(token);
-        if (node->token->type != IDENTIFIER) {
-          fprintf(stderr, "syntax error at %s:%d\n", __FILE__, __LINE__);
-          return NULL;
-        }
-        append(cur_node->childs, node);
-        cur_node = last(cur_node->childs);
-        token = token->next; // skip tablename
-
-        node = node_from_token(token);
-        if (node->type.exacttype == LPAREN && obj_typ == TABLE) {
-          node = parse_expr2(TABLE, &token, 0);
-          if (!node) {
-            fprintf(stderr, "syntax error at %s:%d\n", __FILE__, __LINE__);
-            return NULL;
-          }
-          append(cur_node->childs, node);
-        } else if (node->type.exacttype == ON && obj_typ == INDEX) {
-          fprintf(stderr, "NOT IMPLEMENTED\n");
-          return NULL;
-        }
-
-        break;
-
-      case INSERT:
-        cur_node = root;
-        append(cur_node->childs, node);
-        cur_node = last(cur_node->childs);
-        token = token->next;
-        node = node_from_token(token);
-        if (node->type.exacttype != INTO) {
-          fprintf(stderr, "syntax error at %s:%d\n", __FILE__, __LINE__);
-          return NULL;
-        }
-        append(cur_node->childs, node);
-        cur_node = last(cur_node->childs);
-        break;
-
       case SELECT:
         cur_node = root;
         append(cur_node->childs, node);
         cur_node = last(cur_node->childs);
         token = token->next; // skip "select"
-                             //
         node = node_from_token(token);
         if (node->type.nodetype != EXPRESSION) {
-          fprintf(stderr, "syntax error at %s:%d\n", __FILE__, __LINE__);
+          fprintf(stderr, "[ERROR] at SELECT parsing phase\n");
+          fprintf(stderr, "[ERROR] expr expected, but get \"%s\"\n",
+                  node->token->str);
           return NULL;
         }
-        node = parse_expr2(SELECT, &token, 0);
+        node = parse_expr(SELECT, &token);
         if (!node) {
-          fprintf(stderr, "syntax error at %s:%d\n", __FILE__, __LINE__);
+          fprintf(stderr, "[ERROR] at SELECT parsing phase\n");
+          fprintf(stderr, "[ERROR] SELECT stmt parse error\n");
           return NULL;
         }
         append(cur_node->childs, node);
@@ -656,17 +571,73 @@ Node *parse(Token *token) {
         token = token->next; // skip "from"
         node = node_from_token(token);
         if (node->type.nodetype != EXPRESSION) {
-          fprintf(stderr, "syntax error at %s:%d\n", __FILE__, __LINE__);
+          fprintf(stderr, "[ERROR] at FROM parsing phase\n");
+          fprintf(stderr, "[ERROR] expr expected, but get \"%s\"\n",
+                  node->token->str);
           return NULL;
         }
-        node = parse_expr2(FROM, &token, 0);
+        node = parse_expr(FROM, &token);
         if (!node) {
-          fprintf(stderr, "syntax error at %s:%d\n", __FILE__, __LINE__);
+          fprintf(stderr, "[ERROR] at FROM parsing phase\n");
+          fprintf(stderr, "[ERROR] FROM clause parse error\n");
           return NULL;
         }
         append(cur_node->childs, node);
         break;
+
+      case CREATE:
+        cur_node = root;
+        append(cur_node->childs, node);
+        cur_node = last(cur_node->childs);
+        token = token->next; // skip "create"
+        node = node_from_token(token);
+        if (node->type.exacttype != TABLE) {
+          fprintf(stderr, "[ERROR] at CREATE parsing phase\n");
+          fprintf(stderr, "[ERROR] should be a TABLE, but get \"%s\"\n",
+                  node->token->str);
+          return NULL;
+        }
+
+        append(cur_node->childs, node);
+        cur_node = last(cur_node->childs);
+        token = token->next; // skip "table"
+        node = node_from_token(token);
+        if (node->token->type != IDENTIFIER) {
+          fprintf(stderr, "[ERROR] at CREATE parsing phase\n");
+          fprintf(stderr, "[ERROR] should be identifier, but get \"%s\"\n",
+                  node->token->str);
+          return NULL;
+        }
+        append(cur_node->childs, node);
+        cur_node = last(cur_node->childs);
+        token = token->next; // skip tablename
+
+        node = node_from_token(token);
+        if (node->type.nodetype != EXPRESSION) {
+          fprintf(stderr, "[ERROR] at CREATE parsing phase\n");
+          fprintf(stderr, "[ERROR] expr expected, but get \"%s\"\n",
+                  node->token->str);
+          return NULL;
+        }
+        node = parse_expr(CREATE, &token);
+        if (!node) {
+          fprintf(stderr, "[ERROR] at CREATE parsing phase\n");
+          fprintf(stderr, "[ERROR] CREATE clause parse error\n");
+          return NULL;
+        }
+        append(cur_node->childs, node);
+        break;
+
+      default:
+        fprintf(stderr,
+                "[ERROR] token not consumed by parser, current token: \"%s\"\n",
+                node->token->str);
+        exit(1);
       }
+
+    } else {
+      fprintf(stderr, "[ERROR] is this SQL?\n");
+      return NULL;
     }
   }
 

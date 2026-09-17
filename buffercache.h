@@ -161,24 +161,38 @@ typedef struct {
     buffer_flush(cache);                                                       \
   } while (0);
 
-#define select_tabdef(mpage, TABLE)                                            \
+#define select_tabdef(cache, TABLE)                                            \
   do {                                                                         \
-    printf("%-18s %-18s %-18s %-18s %-18s\n", "ObjName", "ColName", "Ord",     \
-           "DataTypeEnum", "DataTypeLen");                                     \
-    for (size_t i = 0; i < (mpage).SlotNum; i++) {                             \
-      Slot *slot = (Slot *)&(mpage).data[i * sizeof(Slot)];                    \
-      TABLE *row = (TABLE *)&(mpage).data[slot->DataLoc];                      \
+    int id = hashmap_find(&(cache).pagedir, "TABLE_DEF");                      \
+    int pageno = (cache).pagedir.items[id].pageno[0];                          \
+    char cpageno[32];                                                          \
+    sprintf(cpageno, "%d", pageno);                                            \
+    int index = hashmap_find(&(cache).pagetable, cpageno);                     \
+    int pn = (cache).pagetable.items[index].pageno[0];                         \
+    Page *mpage = &(cache).buffer[pn];                                         \
+    printf("%-18s %-18s %-18s %-18s %-18s\n", "|ObjName|", "|ColName|",        \
+           "|Ord|", "|DataTypeEnum|", "|DataTypeLen|");                        \
+    for (size_t i = 0; i < (mpage)->SlotNum; i++) {                            \
+      Slot *slot = (Slot *)&(mpage)->data[i * sizeof(Slot)];                   \
+      TABLE *row = (TABLE *)&(mpage)->data[slot->DataLoc];                     \
       printf("%-18s %-18s %-18d %-18d %-18d\n", row->ObjName, row->ColName,    \
              row->Ord, row->DataType, row->DataTypeLen);                       \
     }                                                                          \
   } while (0)
 
-#define select_pagedir(mpage, TABLE)                                           \
+#define select_pagedir(cache, TABLE)                                           \
   do {                                                                         \
+    int id = hashmap_find(&(cache).pagedir, "PAGE_DIRECTORY");                 \
+    int pageno = (cache).pagedir.items[id].pageno[0];                          \
+    char cpageno[32];                                                          \
+    sprintf(cpageno, "%d", pageno);                                            \
+    int index = hashmap_find(&(cache).pagetable, cpageno);                     \
+    int pn = (cache).pagetable.items[index].pageno[0];                         \
+    Page *page = &(cache).buffer[pn];                                          \
     printf("%-18s %-18s\n", "ObjName", "PageNo");                              \
-    for (size_t i = 0; i < (mpage).SlotNum; i++) {                             \
-      Slot *slot = (Slot *)&(mpage).data[i * sizeof(Slot)];                    \
-      TABLE *row = (TABLE *)&(mpage).data[slot->DataLoc];                      \
+    for (size_t i = 0; i < page->SlotNum; i++) {                               \
+      Slot *slot = (Slot *)&page->data[i * sizeof(Slot)];                      \
+      TABLE *row = (TABLE *)&page->data[slot->DataLoc];                        \
       printf("%-18s %-18d\n", row->ObjName, row->PageNo);                      \
     }                                                                          \
   } while (0)
@@ -191,5 +205,34 @@ typedef struct {
     row.Ord = (mo);                                                            \
     row.DataType = (mdt);                                                      \
     row.DataTypeLen = (mdtl);                                                  \
-    page_insert_row(last_page((buffer)), row, sizeof(row));                    \
+    int id = hashmap_find(&buffer.pagedir, "TABLE_DEF");                       \
+    int pageno = buffer.pagedir.items[id].pageno[0];                           \
+    char cpageno[32];                                                          \
+    sprintf(cpageno, "%d", pageno);                                            \
+    int index = hashmap_find(&buffer.pagetable, cpageno);                      \
+    int pn = buffer.pagetable.items[index].pageno[0];                          \
+    page_insert_row(buffer.buffer[pn], row, sizeof(row));                      \
+  } while (0);
+
+#define insert_pagedir(cache)                                                  \
+  do {                                                                         \
+    int id = hashmap_find(&(cache).pagedir, "PAGE_DIRECTORY");                 \
+    int pageno = (cache).pagedir.items[id].pageno[0];                          \
+    char cpageno[32];                                                          \
+    sprintf(cpageno, "%d", pageno);                                            \
+    int index = hashmap_find(&(cache).pagetable, cpageno);                     \
+    int pn = (cache).pagetable.items[index].pageno[0];                         \
+    Page page = {0};                                                           \
+    init_page((page), PAGEDIR, "PAGE_DIRECTORY", (cache).buffer[pn].PageNo);   \
+    memcpy(&(cache).buffer[pn], &page, sizeof(page));                          \
+    for (size_t i = 0; i < (cache).pagedir.capa; i++) {                        \
+      if (strlen((cache).pagedir.items[i].objname) != 0) {                     \
+        PageDir row = {0};                                                     \
+        strcpy(row.ObjName, (cache).pagedir.items[i].objname);                 \
+        for (size_t j = 0; j < (cache).pagedir.items[i].cnt; j++) {            \
+          row.PageNo = (cache).pagedir.items[i].pageno[j];                     \
+          page_insert_row((cache).buffer[pn], row, sizeof(row));               \
+        }                                                                      \
+      }                                                                        \
+    }                                                                          \
   } while (0);

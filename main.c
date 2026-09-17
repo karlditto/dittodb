@@ -170,7 +170,7 @@ int main() {
   page_insert_row(last_page(buffer), dbheader, sizeof(DBHeader));
 
   // to disk;
-  int fd = open("real.db", O_CREAT | O_TRUNC | O_RDWR | O_SYNC | O_DIRECT,
+  int fd = open("ditto.db", O_CREAT | O_TRUNC | O_RDWR | O_SYNC | O_DIRECT,
                 S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 
   assert(fd >= 0);
@@ -180,7 +180,7 @@ int main() {
 
   buffer_flush(buffer);
 
-  fd = open("real.db", O_RDWR | O_SYNC | O_DIRECT,
+  fd = open("ditto.db", O_RDWR | O_SYNC | O_DIRECT,
             S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 
   assert(fd >= 0);
@@ -212,41 +212,26 @@ int main() {
   insert_tabledef(buffer, "PAGE_DIRECTORY", "ObjName", 0, CHAR, 32);
   insert_tabledef(buffer, "PAGE_DIRECTORY", "PageNo", 1, INTEGER, 4);
 
-  int id = hashmap_find(&buffer.pagedir, "TABLE_DEF");
-  int pageno = buffer.pagedir.items[id].pageno[0];
-  char cpageno[32];
-  sprintf(cpageno, "%d", pageno);
-  int index = hashmap_find(&buffer.pagetable, cpageno);
-  int pn = buffer.pagetable.items[index].pageno[0];
-  select_tabdef(buffer.buffer[pn], TableDef);
+  typedef struct {
+    uint16_t id;
+    char text[32];
+  } table1;
+  hashmap_append(&buffer.pagedir, "table1");
+  idx = hashmap_find(&buffer.pagedir, "table1");
+  KV_append(buffer.pagedir.items[idx], header->PageCount);
+  page_alloc(buffer, TABLEPAGE, "table1", header->PageCount);
+  header->PageCount++;
+
+  insert_tabledef(buffer, "table1", "id", 0, INTEGER, 2);
+  insert_tabledef(buffer, "table1", "text", 1, CHAR, 32);
+
+  insert_pagedir(buffer);
+  insert_pagedir(buffer);
+  select_tabdef(buffer, TableDef);
   puts("");
+  select_pagedir(buffer, PageDir);
 
-  for (size_t i = 0; i < buffer.pagedir.capa; i++) {
-    int id = hashmap_find(&buffer.pagedir, "PAGE_DIRECTORY");
-    int pageno = buffer.pagedir.items[id].pageno[0];
-    char cpageno[32];
-    int index = hashmap_find(&buffer.pagetable, cpageno);
-    int pn = buffer.pagetable.items[index].pageno[0];
-    sprintf(cpageno, "%d", pageno);
-    if (strlen(buffer.pagedir.items[i].objname) != 0) {
-      PageDir row = {0};
-      strcpy(row.ObjName, buffer.pagedir.items[i].objname);
-      for (size_t j = 0; j < buffer.pagedir.items[i].cnt; j++) {
-        row.PageNo = buffer.pagedir.items[i].pageno[j];
-        page_insert_row(buffer.buffer[pn], row, sizeof(row));
-      }
-    }
-  }
-
-  id = hashmap_find(&buffer.pagedir, "PAGE_DIRECTORY");
-  pageno = buffer.pagedir.items[id].pageno[0];
-  memset(cpageno, 0, 32);
-  sprintf(cpageno, "%d", pageno);
-  index = hashmap_find(&buffer.pagetable, cpageno);
-  pn = buffer.pagetable.items[index].pageno[0];
-  select_pagedir(buffer.buffer[pn], PageDir);
-
-  checkpoint(buffer, "real.db");
+  checkpoint(buffer, "ditto.db");
   close(fd);
   hashmap_free(&buffer.pagetable);
   free(buffer.buffer);

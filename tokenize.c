@@ -334,5 +334,6 @@ Token *tokenize(char *s) {
   }
 
   cur = cur->next = new_token(EOQ, s, 0);
+  cur->str = "";
   return root.next;
 }

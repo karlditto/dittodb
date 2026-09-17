@@ -1,10 +1,10 @@
 sql:main.c
 	cc -ggdb -Wall -Wextra -o sql *.c -I./
 
-run:sql
-	./sql
+run:
+	cc -ggdb -Wall -Wextra -o sql *.c -I./ && ./sql
 
-debug:sql
+debug:
 	gf2 ./sql
 
 parser:
