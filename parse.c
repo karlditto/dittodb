@@ -538,6 +538,88 @@ Node *parse_create(Token **token, int min_bp) {
   return lhs;
 }
 
+Node *parse_insert(Token **token, int min_bp) {
+  Node *lhs = node_from_token(*token);
+
+  if (lhs->type.exacttype == ADD || lhs->type.exacttype == SUB) {
+    Node *prefix_operator = node_from_token(*token);
+    *token = (*token)->next;
+    Node *prefix_operand = parse_insert(token, 0);
+    if (!prefix_operand) {
+      return NULL;
+    }
+    append(prefix_operator->childs, prefix_operand);
+    prefix_operator->expr_lhs = prefix_operand;
+    lhs = prefix_operator;
+  }
+
+  // deal with parentheses
+  if (lhs->type.exacttype == LPAREN) {
+    *token = (*token)->next; // skip "("
+    lhs = parse_insert(token, 0);
+    if (!lhs) {
+      return NULL;
+    }
+    *token = (*token)->next; // skip ")"
+    if (strcasecmp((*token)->str, ")") != 0) {
+      fprintf(stderr, "[ERROR] at FROM parsing phase\n");
+      fprintf(stderr, "\")\" expected, but get \"%s\"\n", (*token)->str);
+      return NULL;
+    }
+  }
+
+  if (node_from_token(*token)->type.nodetype != EXPRESSION) {
+    fprintf(stderr, "[ERROR] at FROM parsing phase\n");
+    fprintf(stderr, "[ERROR] expr expected, but get \"%s\"\n", (*token)->str);
+    return NULL;
+  }
+  while (true) {
+    Node *operator = node_from_token((*token)->next);
+
+    if (operator->type.exacttype == LPAREN) {
+      fprintf(stderr, "[ERROR] at FROM parsing phase\n");
+      fprintf(stderr,
+              "[ERROR] This operator should not be used like this, current "
+              "token: \"%s\"\n",
+              operator->token->str);
+      return NULL;
+    }
+    if (operator->type.exacttype == RPAREN) {
+      break;
+    }
+
+    if (operator->type.nodetype != EXPRESSION) {
+      break;
+    }
+
+    if (operator->type.exacttype != COMMA) {
+      fprintf(stderr, "[ERROR] at FROM parsing phase\n");
+      fprintf(stderr, "[ERROR] operator \",\" expected at token: \"%s\"\n",
+              operator->token->str);
+      return NULL;
+    }
+
+    int l_bp = bindpower_lookup(operator->token).lhs;
+    int r_bp = bindpower_lookup(operator->token).rhs;
+    if (l_bp < min_bp) {
+      break;
+    }
+    *token = (*token)->next;
+    *token = (*token)->next; // pointer moves to rhs atom
+    Node *rhs = parse_insert(token, r_bp);
+    if (!rhs) {
+      return NULL;
+    }
+    append(operator->childs, lhs);
+    append(operator->childs, rhs);
+    operator->expr_lhs = lhs;
+    operator->expr_rhs = rhs;
+
+    lhs = operator;
+  }
+  return lhs;
+}
+
 Node *parse_expr(ExactType type, Token **token) {
   switch (type) {
 
@@ -554,6 +636,10 @@ Node *parse_expr(ExactType type, Token **token) {
 
   case CREATE:
     return parse_create(token, 0);
+    break;
+
+  case INSERT:
+    return parse_insert(token, 0);
     break;
   }
 
@@ -659,6 +745,62 @@ Node *parse(Token *token) {
         append(cur_node->childs, node);
         break;
 
+      case INSERT:
+        cur_node = root;
+        append(cur_node->childs, node);
+        cur_node = last(cur_node->childs);
+        token = token->next; // skip "insert"
+
+        node = node_from_token(token);
+        if (node->type.exacttype != INTO) {
+          fprintf(stderr, "[ERROR] at INSERT parsing phase\n");
+          fprintf(stderr, "[ERROR] should be a INTO, but get \"%s\"\n",
+                  node->token->str);
+          return NULL;
+        }
+        append(cur_node->childs, node);
+        cur_node = last(cur_node->childs);
+        token = token->next; // skip "into"
+
+        node = node_from_token(token);
+        if (node->token->type != IDENTIFIER) {
+          fprintf(stderr, "[ERROR] at INSERT parsing phase\n");
+          fprintf(stderr, "[ERROR] should be identifier, but get \"%s\"\n",
+                  node->token->str);
+          return NULL;
+        }
+        append(cur_node->childs, node);
+        cur_node = last(cur_node->childs);
+        token = token->next; // skip tablename
+                             //
+
+        node = node_from_token(token);
+        if (node->type.exacttype != VALUES) {
+          fprintf(stderr, "[ERROR] at INSERT parsing phase\n");
+          fprintf(stderr, "[ERROR] should be VALUES, but get \"%s\"\n",
+                  node->token->str);
+          return NULL;
+        }
+        append(cur_node->childs, node);
+        cur_node = last(cur_node->childs);
+        token = token->next; // skip values
+
+        node = node_from_token(token);
+        if (node->type.nodetype != EXPRESSION) {
+          fprintf(stderr, "[ERROR] at INSERT parsing phase\n");
+          fprintf(stderr, "[ERROR] expr expected, but get \"%s\"\n",
+                  node->token->str);
+          return NULL;
+        }
+        node = parse_expr(INSERT, &token);
+        if (!node) {
+          fprintf(stderr, "[ERROR] at INSERT parsing phase\n");
+          fprintf(stderr, "[ERROR] CREATE clause parse error\n");
+          return NULL;
+        }
+        append(cur_node->childs, node);
+        break;
+
       default:
         fprintf(stderr,
                 "[ERROR] token not consumed by parser, current token: \"%s\"\n",
@@ -667,7 +809,7 @@ Node *parse(Token *token) {
       }
 
     } else {
-      fprintf(stderr, "[ERROR] is this SQL?\n");
+      fprintf(stderr, "[ERROR] Not recognized by this lame parser\n");
       return NULL;
     }
   }
