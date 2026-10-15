@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <strings.h>
 #include <time.h>
 #include <unistd.h>
@@ -477,6 +478,24 @@ Node *parse_create(Token **token, int min_bp) {
     if (datatype->type.exacttype == DTYPE) {
       append(datatype->childs, lhs);
       datatype->expr_lhs = lhs;
+
+      if (strncasecmp(datatype->token->str, "char",
+                      strlen(datatype->token->str)) == 0) {
+        *token = (*token)->next; // char(8), cursor to LPAREN
+        //
+        if (strcasecmp((*token)->str, "(") != 0) {
+          fprintf(stderr, "[ERROR] at CREATE parsing phase\n");
+          fprintf(stderr, "[ERROR] \"(\" expected, but get \"%s\"\n",
+                  (*token)->str);
+          return NULL;
+        }
+        *token = (*token)->next; // char(8), cursor to size
+        Node *datatype_size = node_from_token(*token);
+        append(datatype->childs, datatype_size);
+        datatype->expr_lhs = datatype_size;
+        *token = (*token)->next; // char(8), cursor to RPAREN
+      }
+
       lhs = datatype;
     } else {
       fprintf(stderr, "[ERROR] at CREATE parsing phase\n");
@@ -495,7 +514,7 @@ Node *parse_create(Token **token, int min_bp) {
     Node *operator = node_from_token((*token)->next);
 
     if (operator->type.exacttype == LPAREN) {
-      fprintf(stderr, "[ERROR] at SELECT parsing phase\n");
+      fprintf(stderr, "[ERROR] at CREATE parsing phase\n");
       fprintf(stderr,
               "[ERROR] This operator should not be used like this, current "
               "token: \"%s\"\n",
