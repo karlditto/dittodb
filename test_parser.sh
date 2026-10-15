@@ -10,7 +10,14 @@ else
   ((FAILED++))
 fi
 
-{ ./sql "create table t1 (id int, text char(8)"; } &>/dev/null
+{ ./sql "create table t1 (id integer, text char)"; } &>/dev/null
+if [[ $? == 0 ]]; then
+  ((PASSED++))
+else
+  ((FAILED++))
+fi
+
+{ ./sql 'insert into t1 values (1, "hello world")'; } &>/dev/null
 if [[ $? == 0 ]]; then
   ((PASSED++))
 else

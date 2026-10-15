@@ -463,7 +463,7 @@ Node *parse_create(Token **token, int min_bp) {
     }
     *token = (*token)->next; // skip ")"
     if (strcasecmp((*token)->str, ")") != 0) {
-      fprintf(stderr, "[ERROR] at SELECT parsing phase\n");
+      fprintf(stderr, "[ERROR] at CREATE parsing phase\n");
       fprintf(stderr, "[ERROR] \")\" expected, but get \"%s\"\n",
               (*token)->str);
       return NULL;

@@ -1,11 +1,19 @@
+cc=gcc
+WFLAG=-Wall -Wextra -Wno-switch
+.PHONY: run debug parser valgrind
+
 sql:main.c
-	cc -ggdb -Wall -Wextra -o sql *.c -I./
+	${cc} -ggdb ${WFLAG} -o sql *.c -I./ -lreadline
 
 run:
-	cc -ggdb -Wall -Wextra -o sql *.c -I./ && ./sql
+	./sql
+
+
+parser:
+	${cc} -U MAIN -D SQLPARSER -ggdb ${WFLAG} -o sql *.c -I./ -lreadline
 
 debug:
 	gf2 ./sql
 
-parser:
-	cc -U MAIN -D SQLPARSER -ggdb -Wall -Wextra -o sql *.c -I./
+valgrind:
+	valgrind --leak-check=full --show-leak-kinds=all ./sql

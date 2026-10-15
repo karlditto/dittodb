@@ -3,6 +3,8 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <iso646.h>
+#include <readline/history.h>
+#include <readline/readline.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -17,7 +19,8 @@
 #define ARENA_SIZE_BYTES 20 * 1024 * 1024
 
 Region mem_ast;
-
+//
+// #define SQLPARSER
 #ifdef SQLPARSER
 
 int main(int argc, char *argv[]) {
@@ -35,22 +38,24 @@ int main(int argc, char *argv[]) {
     Node *ast = parse(token);
     print_ast(ast, 1);
     // token_free(token);
+    printf("%d\n", mem_ast.used);
     region_free(&mem_ast);
     return 0;
   }
 
   char *command = NULL;
   size_t numread;
+  char *prompt = "SQL> ";
   while (true) {
     mem_ast = region_init(ARENA_SIZE_BYTES);
-    printf("SQL> ");
-    ssize_t num_bytes = getline(&command, &numread, stdin);
-    if (num_bytes == -1) {
-      printf("EOF received, exit process.\n");
+    command = readline(prompt);
+    if (!command) {
       break;
     }
+    if (command && *command)
+      add_history(command);
     Token *token = tokenize(command);
-
+    free(command);
     print_token(token);
 
     Node *ast = parse(token);
