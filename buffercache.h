@@ -47,14 +47,14 @@ typedef struct {
 } Page;
 
 typedef struct {
-  uint16_t SlotNo; // start from 0
-  uint16_t DataLoc;
+  uint16_t SlotNo;  // start from 0
+  uint16_t DataLoc; // offset inside the block
 } Slot;
 
 typedef struct {
   char DBName[OBJ_NAME_LEN];
-  uint64_t PageCount;
-  int64_t FreeListHeader;
+  uint64_t PageCount;     // the number of pages in a file including this page
+  int64_t FreeListHeader; // the pagenum of the first free page
 } DBHeader;
 
 // data dict
@@ -101,8 +101,9 @@ typedef struct {
   size_t capaacity;
   size_t used;
   Page *buffer;
-  HashMap pagetable;
-  HashMap pagedir;
+  HashMap pagetable; // maps page to the copy in memory
+  HashMap
+      pagedir; // maps page to the page on disk, used to pull page into memory
 } BufferCache;
 
 #define last_page(cache)                                                       \

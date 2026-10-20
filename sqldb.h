@@ -1,3 +1,4 @@
+#include "buffercache.h"
 #include "hashmap.h"
 #include "region.h"
 #include <assert.h>
@@ -135,6 +136,10 @@ typedef enum {
   NOT,
   COMMA,
   EQ,
+  LT,
+  LEQ,
+  GT,
+  GEQ,
   LPAREN,
   RPAREN,
   ATOM,
@@ -171,3 +176,5 @@ typedef struct {
 Node *parse(Token *);
 void print_ast(Node *, int);
 void node_free(Node *node);
+
+void execute_sql(Node *ast, BufferCache *buffer); // impl in buffercache.c

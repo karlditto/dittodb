@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
     Node *ast = parse(token);
     print_ast(ast, 1);
     // token_free(token);
-    printf("%d\n", mem_ast.used);
+    printf("%lu\n", mem_ast.used);
     region_free(&mem_ast);
     return 0;
   }
@@ -160,10 +160,9 @@ int main_hashtable() {
 
 #ifndef SQLPARSER
 
-#include "buffercache.h"
 #include "pokemon.h"
 
-int main() {
+int main(int argc, char *argv[]) {
   BufferCache buffer = {0};
   hashmap_init(&buffer.pagedir, 8);
   hashmap_init(&buffer.pagetable, 4);
@@ -237,6 +236,17 @@ int main() {
   select_pagedir(buffer, PageDir);
 
   checkpoint(buffer, "ditto.db");
+
+  if (argc == 2) {
+    mem_ast = region_init(ARENA_SIZE_BYTES);
+    Token *token = tokenize(argv[1]);
+    print_token(token);
+
+    Node *ast = parse(token);
+    execute_sql(ast, NULL);
+    region_free(&mem_ast);
+  }
+
   close(fd);
   hashmap_free(&buffer.pagetable);
   free(buffer.buffer);

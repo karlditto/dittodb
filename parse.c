@@ -63,6 +63,10 @@ static char *get_exact_type(Node *node) {
   exacttypestr[NOT] = "NOT";
   exacttypestr[COMMA] = "COMMA";
   exacttypestr[EQ] = "EQ";
+  exacttypestr[LT] = "LT";
+  exacttypestr[LEQ] = "LEQ";
+  exacttypestr[GT] = "GT";
+  exacttypestr[GEQ] = "GEQ";
   exacttypestr[LPAREN] = "LPAREN";
   exacttypestr[RPAREN] = "RPAREN";
   exacttypestr[ATOM] = "ATOM";
@@ -93,28 +97,46 @@ void print_ast(Node *node, int depth) {
 
 static BindPower bindpower_lookup(Token *token) {
   if (strcasecmp(token->str, "+") == 0) {
-    return (BindPower){.lhs = 3, .rhs = 4};
+    return (BindPower){.lhs = 5, .rhs = 6};
   }
   if (strcasecmp(token->str, "-") == 0) {
-    return (BindPower){.lhs = 3, .rhs = 4};
+    return (BindPower){.lhs = 5, .rhs = 6};
   }
   if (strcasecmp(token->str, "*") == 0) {
-    return (BindPower){.lhs = 5, .rhs = 6};
+    return (BindPower){.lhs = 7, .rhs = 8};
   }
   if (strcasecmp(token->str, "/") == 0) {
-    return (BindPower){.lhs = 5, .rhs = 6};
+    return (BindPower){.lhs = 7, .rhs = 8};
   }
   if (strcasecmp(token->str, "(") == 0) {
-    return (BindPower){.lhs = 5, .rhs = 6};
+    return (BindPower){.lhs = 7, .rhs = 8};
   }
   if (strcasecmp(token->str, ")") == 0) {
-    return (BindPower){.lhs = 5, .rhs = 6};
+    return (BindPower){.lhs = 7, .rhs = 8};
   }
   if (strcasecmp(token->str, ",") == 0) {
-    return (BindPower){.lhs = 1, .rhs = 2};
+    return (BindPower){.lhs = 3, .rhs = 4};
   }
   if (strcasecmp(token->str, "=") == 0) {
-    return (BindPower){.lhs = 2, .rhs = 1};
+    return (BindPower){.lhs = 4, .rhs = 3};
+  }
+  if (strcasecmp(token->str, "and") == 0) {
+    return (BindPower){.lhs = 1, .rhs = 2};
+  }
+  if (strcasecmp(token->str, "or") == 0) {
+    return (BindPower){.lhs = 0, .rhs = 1};
+  }
+  if (strcasecmp(token->str, ">") == 0) {
+    return (BindPower){.lhs = 4, .rhs = 3};
+  }
+  if (strcasecmp(token->str, ">=") == 0) {
+    return (BindPower){.lhs = 4, .rhs = 3};
+  }
+  if (strcasecmp(token->str, "<") == 0) {
+    return (BindPower){.lhs = 4, .rhs = 3};
+  }
+  if (strcasecmp(token->str, "<=") == 0) {
+    return (BindPower){.lhs = 4, .rhs = 3};
   }
   fprintf(stderr, "unknown operator in bind power lookup phase");
   exit(EXIT_FAILURE);
@@ -177,6 +199,30 @@ static Node *node_from_token(Token *token) {
     }
     if (strcasecmp(token->str, "=") == 0) {
       node->type.exacttype = EQ;
+      return node;
+    }
+    if (strcasecmp(token->str, ">") == 0) {
+      node->type.exacttype = GT;
+      return node;
+    }
+    if (strcasecmp(token->str, ">=") == 0) {
+      node->type.exacttype = GEQ;
+      return node;
+    }
+    if (strcasecmp(token->str, "<") == 0) {
+      node->type.exacttype = LT;
+      return node;
+    }
+    if (strcasecmp(token->str, "<=") == 0) {
+      node->type.exacttype = LEQ;
+      return node;
+    }
+    if (strcasecmp(token->str, "AND") == 0) {
+      node->type.exacttype = AND;
+      return node;
+    }
+    if (strcasecmp(token->str, "OR") == 0) {
+      node->type.exacttype = OR;
       return node;
     }
     fprintf(stderr, "unknown operator at %s:%d", __FILE__, __LINE__);
@@ -639,6 +685,92 @@ Node *parse_insert(Token **token, int min_bp) {
   return lhs;
 }
 
+Node *parse_where(Token **token, int min_bp) {
+  Node *lhs = node_from_token(*token); // select a+1,b,c
+                                       //        ^
+  // case: -1, +2
+  if (lhs->type.exacttype == ADD || lhs->type.exacttype == SUB) {
+    Node *prefix_operator = node_from_token(*token); // case: -1
+                                                     //       ^
+    *token = (*token)->next;                         // -1
+                                                     //  ^
+    Node *prefix_operand = parse_where(token, 0);
+    if (!prefix_operand) {
+      return NULL;
+    }
+    append(prefix_operator->childs, prefix_operand);
+    prefix_operator->expr_lhs = prefix_operand;
+    lhs = prefix_operator;
+  }
+
+  // deal with parentheses
+  if (lhs->type.exacttype == LPAREN) {
+    *token = (*token)->next; // skip "("
+    lhs = parse_where(token, 0);
+    if (!lhs) {
+      return NULL;
+    }
+    *token = (*token)->next; // skip ")"
+    if (strcasecmp((*token)->str, ")") != 0) {
+      fprintf(stderr, "[ERROR] at SELECT parsing phase\n");
+      fprintf(stderr, "[ERROR] \")\" expected, but get \"%s\"\n",
+              (*token)->str);
+      return NULL;
+    }
+  }
+
+  if (node_from_token(*token)->type.nodetype != EXPRESSION) {
+    fprintf(stderr, "[ERROR] at SELECT parsing phase\n");
+    fprintf(stderr, "[ERROR] expr expected, but get \"%s\"\n", (*token)->str);
+    return NULL;
+  }
+  while (true) {
+    Node *operator = node_from_token((*token)->next);
+
+    if (operator->type.exacttype == LPAREN) {
+      fprintf(stderr, "[ERROR] at SELECT parsing phase\n");
+      fprintf(stderr,
+              "[ERROR] This operator should not be used like this, current "
+              "token: \"%s\"\n",
+              operator->token->str);
+      return NULL;
+    }
+    if (operator->type.exacttype == RPAREN) {
+      break;
+    }
+
+    if (operator->type.nodetype != EXPRESSION) {
+      break;
+    }
+
+    if (operator->token->type != OPERATOR) {
+      fprintf(stderr, "[ERROR] at SELECT parsing phase\n");
+      fprintf(stderr, "[ERROR] operator expected at token: \"%s\"\n",
+              operator->token->str);
+      return NULL;
+    } // stop if not expression
+
+    int l_bp = bindpower_lookup(operator->token).lhs;
+    int r_bp = bindpower_lookup(operator->token).rhs;
+    if (l_bp < min_bp) {
+      break;
+    }
+    *token = (*token)->next;
+    *token = (*token)->next; // pointer moves to rhs atom
+    Node *rhs = parse_where(token, r_bp);
+    if (!rhs) {
+      return NULL;
+    }
+    append(operator->childs, lhs);
+    append(operator->childs, rhs);
+    operator->expr_lhs = lhs;
+    operator->expr_rhs = rhs;
+
+    lhs = operator;
+  }
+  return lhs;
+}
+
 Node *parse_expr(ExactType type, Token **token) {
   switch (type) {
 
@@ -655,6 +787,10 @@ Node *parse_expr(ExactType type, Token **token) {
 
   case CREATE:
     return parse_create(token, 0);
+    break;
+
+  case WHERE:
+    return parse_where(token, 0);
     break;
 
   case INSERT:
@@ -694,6 +830,27 @@ Node *parse(Token *token) {
         node = parse_expr(SELECT, &token);
         if (!node) {
           fprintf(stderr, "[ERROR] at SELECT parsing phase\n");
+          fprintf(stderr, "[ERROR] SELECT stmt parse error\n");
+          return NULL;
+        }
+        append(cur_node->childs, node);
+        break;
+
+      case WHERE:
+        cur_node = root;
+        append(cur_node->childs, node);
+        cur_node = last(cur_node->childs);
+        token = token->next; // skip "where"
+        node = node_from_token(token);
+        if (node->type.nodetype != EXPRESSION) {
+          fprintf(stderr, "[ERROR] at WHERE parsing phase\n");
+          fprintf(stderr, "[ERROR] expr expected, but get \"%s\"\n",
+                  node->token->str);
+          return NULL;
+        }
+        node = parse_expr(WHERE, &token);
+        if (!node) {
+          fprintf(stderr, "[ERROR] at WHERE parsing phase\n");
           fprintf(stderr, "[ERROR] SELECT stmt parse error\n");
           return NULL;
         }

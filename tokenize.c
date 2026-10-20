@@ -76,7 +76,7 @@ static size_t match_keyword(const char *s) {
   regex_t re;
   regmatch_t match[NUM_MATCHES];
   const char *pattern =
-      "^(create|select|insert|into|delete|update|from|and|or|is|"
+      "^(create|select|insert|into|delete|update|from|is|"
       "not|null|where|like|table|index|order|by|values|on)\\b";
 
   if (regcomp(&re, pattern, REG_ICASE | REG_EXTENDED)) {
@@ -104,7 +104,7 @@ static size_t match_string(const char *s) {
   int NUM_MATCHES = 1;
   regex_t re;
   regmatch_t match[NUM_MATCHES];
-  const char *pattern = "^\"[^\"]*\"";
+  const char *pattern = "^\'[^\']*\'";
 
   if (regcomp(&re, pattern, REG_ICASE | REG_EXTENDED)) {
     perror("regex compilation failed");
@@ -131,7 +131,7 @@ static size_t match_identifier(const char *s) {
   int NUM_MATCHES = 1;
   regex_t re;
   regmatch_t match[NUM_MATCHES];
-  const char *pattern = "^[A-Z]+[A-Z0-9]*";
+  const char *pattern = "^[A-Z]+[A-Z0-9_]*";
 
   if (regcomp(&re, pattern, REG_ICASE | REG_EXTENDED)) {
     perror("regex compilation failed");
@@ -214,7 +214,7 @@ static size_t match_operator(const char *s) {
   regmatch_t match[NUM_MATCHES];
   // const char *pattern =
   //     "^(\\+|-|\\*|/|=|<>|<|>|<=|>=|IS\\b|LIKE\\b|NOT\\b|AND\\b|OR\\b)";
-  const char *pattern = "^(\\+|-|\\*|/|\\(|\\)|,|=)";
+  const char *pattern = "^(\\+|-|\\*|/|\\(|\\)|,|=|>|>=|<|<=|or|and)";
 
   if (regcomp(&re, pattern, REG_ICASE | REG_EXTENDED)) {
     perror("regex compilation failed");
