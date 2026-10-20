@@ -162,7 +162,8 @@ int main_hashtable() {
 
 #include "pokemon.h"
 
-int main(int argc, char *argv[]) {
+int main_buffer(int argc, char *argv[]) {
+  // initialize start
   BufferCache buffer = {0};
   hashmap_init(&buffer.pagedir, 8);
   hashmap_init(&buffer.pagetable, 4);
@@ -216,6 +217,8 @@ int main(int argc, char *argv[]) {
   insert_tabledef(buffer, "PAGE_DIRECTORY", "ObjName", 0, CHAR, 32);
   insert_tabledef(buffer, "PAGE_DIRECTORY", "PageNo", 1, INTEGER, 4);
 
+  // initialize end
+
   typedef struct {
     uint16_t id;
     char text[32];
@@ -237,19 +240,28 @@ int main(int argc, char *argv[]) {
 
   checkpoint(buffer, "ditto.db");
 
-  if (argc == 2) {
-    mem_ast = region_init(ARENA_SIZE_BYTES);
-    Token *token = tokenize(argv[1]);
-    print_token(token);
-
-    Node *ast = parse(token);
-    execute_sql(ast, NULL);
-    region_free(&mem_ast);
-  }
-
   close(fd);
   hashmap_free(&buffer.pagetable);
   free(buffer.buffer);
   return 0;
+}
+
+int main() {
+  VM vm = {0};
+  VM_Instruction program[] = {vm_push(16), vm_push(1), vm_sub(), vm_jnz(4),
+                              vm_jmp(1),   vm_halt()
+
+  };
+
+  while (!vm.halt) {
+
+    vm_dump_stack_n_prog(vm, program);
+    VM_Instruction_Signal sig = vm_exec_prog(&vm, program, ARRAY_SIZE(program));
+    if (sig != INST_SIG_OK) {
+      printf("%s\n", vm_sig_as_cstr(sig));
+      vm_dump_stack_n_prog(vm, program);
+      exit(1);
+    }
+  }
 }
 #endif /* ifndef SQLPARSER */

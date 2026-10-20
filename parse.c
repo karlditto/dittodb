@@ -127,16 +127,16 @@ static BindPower bindpower_lookup(Token *token) {
     return (BindPower){.lhs = 0, .rhs = 1};
   }
   if (strcasecmp(token->str, ">") == 0) {
-    return (BindPower){.lhs = 4, .rhs = 3};
+    return (BindPower){.lhs = 3, .rhs = 4};
   }
   if (strcasecmp(token->str, ">=") == 0) {
-    return (BindPower){.lhs = 4, .rhs = 3};
+    return (BindPower){.lhs = 3, .rhs = 4};
   }
   if (strcasecmp(token->str, "<") == 0) {
-    return (BindPower){.lhs = 4, .rhs = 3};
+    return (BindPower){.lhs = 3, .rhs = 4};
   }
   if (strcasecmp(token->str, "<=") == 0) {
-    return (BindPower){.lhs = 4, .rhs = 3};
+    return (BindPower){.lhs = 3, .rhs = 4};
   }
   fprintf(stderr, "unknown operator in bind power lookup phase");
   exit(EXIT_FAILURE);
@@ -333,10 +333,10 @@ static Node *node_from_token(Token *token) {
 Node *parse_select(Token **token, int min_bp) {
   Node *lhs = node_from_token(*token); // select a+1,b,c
                                        //        ^
-  // case: -1, +2
+  // case: -1, +2 not supported, use (--1) instead NOTE:
   if (lhs->type.exacttype == ADD || lhs->type.exacttype == SUB) {
     Node *prefix_operator = node_from_token(*token); // case: -1
-                                                     //       ^
+                                                     //              ^
     *token = (*token)->next;                         // -1
                                                      //  ^
     Node *prefix_operand = parse_select(token, 0);

@@ -1,6 +1,7 @@
 #include "buffercache.h"
 #include "hashmap.h"
 #include "region.h"
+#include "stackmachine.h"
 #include <assert.h>
 #include <ctype.h>
 #include <inttypes.h>
