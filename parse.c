@@ -796,6 +796,8 @@ Node *parse_expr(ExactType type, Token **token) {
   case INSERT:
     return parse_insert(token, 0);
     break;
+  default:
+    return NULL;
   }
 
   return NULL;

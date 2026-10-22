@@ -248,18 +248,17 @@ int main_buffer(int argc, char *argv[]) {
 
 int main() {
   VM vm = {0};
-  VM_Instruction program[] = {vm_push(16), vm_push(1), vm_sub(), vm_jnz(4),
-                              vm_jmp(1),   vm_halt()
+  // VM_Instruction program[] = {vm_push(0), vm_push(1), vm_dup(1),
+  //                             vm_dup(1),  vm_add(),   vm_jmp(2)};
 
-  };
-
+  VM_Instruction program[3] = {{0}, {0}};
   while (!vm.halt) {
 
-    vm_dump_stack_n_prog(vm, program);
+    vm_dump_stack_n_inst(vm, program);
     VM_Instruction_Signal sig = vm_exec_prog(&vm, program, ARRAY_SIZE(program));
     if (sig != INST_SIG_OK) {
       printf("%s\n", vm_sig_as_cstr(sig));
-      vm_dump_stack_n_prog(vm, program);
+      vm_dump_stack_n_inst(vm, program);
       exit(1);
     }
   }

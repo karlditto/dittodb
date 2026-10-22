@@ -2,6 +2,7 @@
 #include "hashmap.h"
 #include "region.h"
 #include "stackmachine.h"
+#include "stringview.h"
 #include <assert.h>
 #include <ctype.h>
 #include <inttypes.h>
@@ -53,22 +54,6 @@ Node *pop(Array *);
 Node *first(Array *);
 Node *last(Array *);
 Node *at(Array *, int);
-
-//
-// string.c
-//
-typedef struct {
-  const char *data;
-  /*
-   * although cstring is already read only,
-   * this const keyword is just to make sure it won't compile if data[0] = "h"
-   * is issued, so it won't result in undefined behavior during runtime,
-   * otherwise might be seg fault at runtime.
-   */
-  size_t len;
-} StringView;
-
-StringView sv(const char *cstr);
 
 //
 // tokenize.c

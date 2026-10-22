@@ -13,15 +13,16 @@ typedef enum {
   INST_SIG_OVERFLOW, // caused by stack or float
   INST_SIG_UNDERFOW, // cause by stack or float
   INST_SIG_UNKNOWN,
-  INST_SIG_ILLEGAL,
+  INST_SIG_ILLEGAL, // when pinst lt 0 or pinst gt program size
   INST_SIG_FPE,
   INST_SIG_COUNT,
 } VM_Instruction_Signal;
 
 typedef enum {
-  INST_CREATE_TABLE,
-  INST_DEFINE_TABLE,
+  INST_NOP = 0, // need this so that, zero initialized array can be used as a
+                // program full of no operation
   INST_PUSH,
+  INST_DUP, // dup a value at the offset of current stack position
   INST_ADD,
   INST_SUB,
   INST_DIV,
@@ -48,10 +49,11 @@ typedef struct {
 VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
                                    size_t program_size);
 void vm_dump_stack(VM vm);
-void vm_dump_stack_n_prog(VM vm, VM_Instruction program[]);
+void vm_dump_stack_n_inst(VM vm, VM_Instruction program[]);
 const char *vm_sig_as_cstr(VM_Instruction_Signal signal);
 const char *vm_ins_as_cstr(VM_Instruction ins);
 VM_Instruction vm_push(int64_t operand);
+VM_Instruction vm_dup(size_t pstack);
 VM_Instruction vm_add();
 VM_Instruction vm_sub();
 VM_Instruction vm_mul();
@@ -60,3 +62,4 @@ VM_Instruction vm_jmp(size_t pinst);
 VM_Instruction vm_halt();
 VM_Instruction vm_eq();
 VM_Instruction vm_jnz(size_t pinst);
+VM_Instruction vm_nop();

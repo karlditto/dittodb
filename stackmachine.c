@@ -1,4 +1,5 @@
 #include "sqldb.h"
+#include <assert.h>
 #include <float.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -9,11 +10,14 @@
 VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
                                    size_t program_size) {
 
-  if (vm->pinst < 0 || vm->pinst >= program_size) {
+  if (vm->pinst < 0 || vm->pinst >= (int64_t)program_size) {
     return INST_SIG_ILLEGAL;
   }
   VM_Instruction instruction = program[vm->pinst];
   switch (instruction.inst_type) {
+  case INST_NOP:
+    vm->pinst++;
+    break;
   case INST_PUSH:
     if (vm->stack_size >= VM_STACK_SIZE) {
       return INST_SIG_OVERFLOW;
@@ -87,7 +91,7 @@ VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
     if (vm->stack_size < 1) {
       return INST_SIG_UNDERFOW;
     }
-    if (!vm->stack[vm->stack_size - 1]) {
+    if (vm->stack[vm->stack_size - 1]) {
       vm->stack_size--;
       vm->pinst = instruction.operand;
     } else {
@@ -95,8 +99,25 @@ VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
     }
     break;
 
-  default:
-    return INST_SIG_UNKNOWN;
+  case INST_DUP:
+    if (vm->stack_size >= VM_STACK_SIZE) {
+      return INST_SIG_OVERFLOW;
+    }
+    if (vm->stack_size - instruction.operand <= 0) {
+      return INST_SIG_UNDERFOW;
+    }
+    if (instruction.operand < 0) {
+      return INST_SIG_ILLEGAL;
+    }
+    vm->stack[vm->stack_size] =
+        vm->stack[vm->stack_size - instruction.operand - 1];
+    vm->stack_size++;
+    vm->pinst++;
+
+    break;
+
+    // default:
+    //   return INST_SIG_UNKNOWN;
   }
 
   return INST_SIG_OK;
@@ -112,7 +133,7 @@ void vm_dump_stack(VM vm) {
   }
 }
 
-void vm_dump_stack_n_prog(VM vm, VM_Instruction program[]) {
+void vm_dump_stack_n_inst(VM vm, VM_Instruction program[]) {
   puts("Stack:");
   for (size_t i = 0; i < vm.stack_size; i++) {
     printf("[%3lu]:"
@@ -121,10 +142,14 @@ void vm_dump_stack_n_prog(VM vm, VM_Instruction program[]) {
            i, vm.stack[i]);
   }
   puts("Instruction:");
-  printf("[%3lu]:"
-         "  "
-         "%s\n",
-         vm.pinst, vm_ins_as_cstr(program[vm.pinst]));
+  printf(
+      "[%3lu]:"
+      "  "
+      "%s\n",
+      vm.pinst,
+      vm_ins_as_cstr(program[vm.pinst])); // TODO: if %s is null, then UB, but
+                                          // gcc works because printf can handle
+                                          // this, but not optimized puts
 }
 
 const char *vm_sig_as_cstr(VM_Instruction_Signal signal) {
@@ -147,19 +172,14 @@ const char *vm_sig_as_cstr(VM_Instruction_Signal signal) {
   case INST_SIG_FPE:
     return "INST_SIG_FPE";
     break;
-  default:
-    return NULL;
   }
   return NULL;
 }
 
 const char *vm_ins_as_cstr(VM_Instruction ins) {
   switch (ins.inst_type) {
-
-  case INST_CREATE_TABLE:
-    return "INST_CREATE_TABLE";
-  case INST_DEFINE_TABLE:
-    return "INST_DEFINE_TABLE";
+  case INST_NOP:
+    return "INST_NOP";
   case INST_PUSH:
     return "INST_PUSH";
   case INST_ADD:
@@ -178,6 +198,8 @@ const char *vm_ins_as_cstr(VM_Instruction ins) {
     return "INST_JNZ";
   case INST_EQ:
     return "INST_EQ";
+  case INST_DUP:
+    return "INST_DUP";
   }
   return NULL;
 }
@@ -225,3 +247,7 @@ VM_Instruction vm_eq() {
 VM_Instruction vm_jnz(size_t pinst) {
   return (VM_Instruction){.inst_type = INST_JNZ, .operand = pinst};
 }
+VM_Instruction vm_dup(size_t pstack) {
+  return (VM_Instruction){.inst_type = INST_DUP, .operand = pstack};
+}
+VM_Instruction vm_nop() { return (VM_Instruction){0}; }
