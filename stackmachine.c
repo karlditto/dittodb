@@ -10,7 +10,7 @@
 VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
                                    size_t program_size) {
 
-  if (vm->pinst < 0 || vm->pinst >= (int64_t)program_size) {
+  if (vm->pinst >= (int64_t)program_size) {
     return INST_SIG_ILLEGAL;
   }
   VM_Instruction instruction = program[vm->pinst];
@@ -31,7 +31,8 @@ VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
       return INST_SIG_UNDERFOW;
     }
 
-    vm->stack[vm->stack_size - 2] += vm->stack[vm->stack_size - 1];
+    vm->stack[vm->stack_size - 2].as_i64 +=
+        vm->stack[vm->stack_size - 1].as_i64;
     vm->stack_size--;
     vm->pinst++;
     break;
@@ -40,7 +41,8 @@ VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
       return INST_SIG_UNDERFOW;
     }
 
-    vm->stack[vm->stack_size - 2] -= vm->stack[vm->stack_size - 1];
+    vm->stack[vm->stack_size - 2].as_i64 -=
+        vm->stack[vm->stack_size - 1].as_i64;
     vm->stack_size--;
     vm->pinst++;
     break;
@@ -49,7 +51,8 @@ VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
       return INST_SIG_UNDERFOW;
     }
 
-    vm->stack[vm->stack_size - 2] *= vm->stack[vm->stack_size - 1];
+    vm->stack[vm->stack_size - 2].as_i64 *=
+        vm->stack[vm->stack_size - 1].as_i64;
     vm->stack_size--;
     vm->pinst++;
     break;
@@ -57,23 +60,21 @@ VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
     if (vm->stack_size < 2) {
       return INST_SIG_UNDERFOW;
     }
-    if (vm->stack[vm->stack_size - 1] == 0) {
+    if (vm->stack[vm->stack_size - 1].as_i64 == 0) {
       return INST_SIG_FPE;
     }
 
-    vm->stack[vm->stack_size - 2] /= vm->stack[vm->stack_size - 1];
+    vm->stack[vm->stack_size - 2].as_i64 /=
+        vm->stack[vm->stack_size - 1].as_i64;
     vm->stack_size--;
     vm->pinst++;
     break;
 
   case INST_JMP:
-    if (instruction.operand < 0) {
-      return INST_SIG_ILLEGAL;
-    }
-    vm->pinst = instruction.operand;
+    vm->pinst = instruction.operand.as_u64;
     break;
 
-  case INST_HALT:
+  case INST_HLT:
     vm->halt = 1;
     break;
 
@@ -81,8 +82,9 @@ VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
     if (vm->stack_size < 2) {
       return INST_SIG_UNDERFOW;
     }
-    vm->stack[vm->stack_size - 2] =
-        vm->stack[vm->stack_size - 1] == vm->stack[vm->stack_size - 2];
+    vm->stack[vm->stack_size - 2].as_u64 =
+        vm->stack[vm->stack_size - 1].as_u64 ==
+        vm->stack[vm->stack_size - 2].as_u64;
     vm->stack_size--;
     vm->pinst++;
     break;
@@ -91,9 +93,9 @@ VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
     if (vm->stack_size < 1) {
       return INST_SIG_UNDERFOW;
     }
-    if (vm->stack[vm->stack_size - 1]) {
+    if (vm->stack[vm->stack_size - 1].as_u64) {
       vm->stack_size--;
-      vm->pinst = instruction.operand;
+      vm->pinst = instruction.operand.as_u64;
     } else {
       vm->pinst++;
     }
@@ -103,14 +105,14 @@ VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
     if (vm->stack_size >= VM_STACK_SIZE) {
       return INST_SIG_OVERFLOW;
     }
-    if (vm->stack_size - instruction.operand <= 0) {
+    if (vm->stack_size - instruction.operand.as_i64 <= 0) {
       return INST_SIG_UNDERFOW;
     }
-    if (instruction.operand < 0) {
+    if (instruction.operand.as_i64 < 0) {
       return INST_SIG_ILLEGAL;
     }
     vm->stack[vm->stack_size] =
-        vm->stack[vm->stack_size - instruction.operand - 1];
+        vm->stack[vm->stack_size - instruction.operand.as_i64 - 1];
     vm->stack_size++;
     vm->pinst++;
 
@@ -128,8 +130,9 @@ void vm_dump_stack(VM vm) {
   for (size_t i = 0; i < vm.stack_size; i++) {
     printf("[%3lu]:"
            "  "
-           "%ld\n",
-           i, vm.stack[i]);
+           "i64:%ld u64:%lu f64:%lf ptr:%p\n",
+           i, vm.stack[i].as_i64, vm.stack[i].as_u64, vm.stack[i].as_f64,
+           vm.stack[i].as_ptr);
   }
 }
 
@@ -138,8 +141,9 @@ void vm_dump_stack_n_inst(VM vm, VM_Instruction program[]) {
   for (size_t i = 0; i < vm.stack_size; i++) {
     printf("[%3lu]:"
            "  "
-           "%ld\n",
-           i, vm.stack[i]);
+           "i64:%ld u64:%lu f64:%lf ptr:%p\n",
+           i, vm.stack[i].as_i64, vm.stack[i].as_u64, vm.stack[i].as_f64,
+           vm.stack[i].as_ptr);
   }
   puts("Instruction:");
   printf(
@@ -192,8 +196,8 @@ const char *vm_ins_as_cstr(VM_Instruction ins) {
     return "INST_MUL";
   case INST_JMP:
     return "INST_JMP";
-  case INST_HALT:
-    return "INST_HALT";
+  case INST_HLT:
+    return "INST_HLT";
   case INST_JNZ:
     return "INST_JNZ";
   case INST_EQ:
@@ -207,7 +211,7 @@ const char *vm_ins_as_cstr(VM_Instruction ins) {
 VM_Instruction vm_push(int64_t operand) {
   return (VM_Instruction){
       .inst_type = INST_PUSH,
-      .operand = operand,
+      .operand = {.as_i64 = operand},
   };
 }
 
@@ -218,9 +222,9 @@ VM_Instruction vm_add() {
 }
 
 VM_Instruction vm_jmp(size_t pinst) {
-  return (VM_Instruction){.inst_type = INST_JMP, .operand = pinst};
+  return (VM_Instruction){.inst_type = INST_JMP, .operand = {.as_i64 = pinst}};
 }
-VM_Instruction vm_halt() { return (VM_Instruction){.inst_type = INST_HALT}; }
+VM_Instruction vm_halt() { return (VM_Instruction){.inst_type = INST_HLT}; }
 
 VM_Instruction vm_sub() {
   return (VM_Instruction){
@@ -245,9 +249,9 @@ VM_Instruction vm_eq() {
 }
 
 VM_Instruction vm_jnz(size_t pinst) {
-  return (VM_Instruction){.inst_type = INST_JNZ, .operand = pinst};
+  return (VM_Instruction){.inst_type = INST_JNZ, .operand = {.as_i64 = pinst}};
 }
 VM_Instruction vm_dup(size_t pstack) {
-  return (VM_Instruction){.inst_type = INST_DUP, .operand = pstack};
+  return (VM_Instruction){.inst_type = INST_DUP, .operand = {.as_i64 = pstack}};
 }
 VM_Instruction vm_nop() { return (VM_Instruction){0}; }

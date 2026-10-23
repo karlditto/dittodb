@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <time.h>
 
-#define VM_STACK_SIZE 16
+#define VM_STACK_SIZE 64
 #define ARRAY_SIZE(x) sizeof(x) / sizeof((x)[0])
 
 typedef enum {
@@ -30,19 +30,28 @@ typedef enum {
   INST_JMP,
   INST_JNZ,
   INST_EQ,
-  INST_HALT,
+  INST_HLT,
   INST_COUNT,
 } VM_Instruction_Type;
 
+typedef union {
+  int64_t as_i64;
+  uint64_t as_u64;
+  double as_f64;
+  void *as_ptr;
+} Word;
+
+static_assert(sizeof(Word) == 8, "Word size should be 64 bits");
+
 typedef struct {
   VM_Instruction_Type inst_type;
-  int64_t operand; // to accept any value
+  Word operand; // to accept any value
 } VM_Instruction;
 
 typedef struct {
-  int64_t stack[VM_STACK_SIZE]; // stack that basiclly accept any value
+  Word stack[VM_STACK_SIZE]; // stack that basiclly accept any value
   size_t stack_size;
-  int64_t pinst; // points to a position in the program
+  uint64_t pinst; // points to a position in the program
   int8_t halt;
 } VM;
 

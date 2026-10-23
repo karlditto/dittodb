@@ -248,10 +248,9 @@ int main_buffer(int argc, char *argv[]) {
 
 int main() {
   VM vm = {0};
-  // VM_Instruction program[] = {vm_push(0), vm_push(1), vm_dup(1),
-  //                             vm_dup(1),  vm_add(),   vm_jmp(2)};
+  VM_Instruction program[] = {vm_push(0), vm_push(1), vm_dup(1),
+                              vm_dup(1),  vm_add(),   vm_jmp(2)};
 
-  VM_Instruction program[3] = {{0}, {0}};
   while (!vm.halt) {
 
     vm_dump_stack_n_inst(vm, program);
