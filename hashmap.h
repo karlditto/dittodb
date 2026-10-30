@@ -1,3 +1,4 @@
+#pragma once
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
@@ -9,9 +10,6 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
-
-#ifndef HASHMAP_H
-#define HASHMAP_H
 
 #define OBJ_NAME_LEN 32
 #define HASH_BUCKET_SIZE 1024 * 53
@@ -40,7 +38,7 @@ typedef struct {
   do {                                                                         \
     if (kv.cnt >= kv.capa) {                                                   \
       if (kv.capa == 0) {                                                      \
-        kv.capa = 8;                                                           \
+        kv.capa = 1;                                                           \
       } else                                                                   \
         kv.capa *= 2;                                                          \
       kv.pageno = realloc(kv.pageno, sizeof(*kv.pageno) * kv.capa);            \
@@ -66,5 +64,3 @@ void hashmap_print(HashMap *map);
 void hashmap_delete(HashMap *map, char *key);
 void hashmap_todisk(HashMap *map, char *filename);
 void hashmap_fromdisk(HashMap *map, char *filename);
-
-#endif // !HASHMAP_H

@@ -1,4 +1,5 @@
-#define _GNU_SOURCE
+#include "hashmap.h"
+#include "parse.h"
 #include "sqldb.h"
 #include <assert.h>
 #include <fcntl.h>
@@ -19,11 +20,8 @@
 #define ARENA_SIZE_BYTES 20 * 1024 * 1024
 
 Region mem_ast;
-//
-// #define SQLPARSER
-#ifdef SQLPARSER
 
-int main(int argc, char *argv[]) {
+int main_sqlparser(int argc, char *argv[]) {
 
   if (argc > 2) {
     fprintf(stderr, "too many arguments.\n");
@@ -44,7 +42,6 @@ int main(int argc, char *argv[]) {
   }
 
   char *command = NULL;
-  size_t numread;
   char *prompt = "SQL> ";
   while (true) {
     mem_ast = region_init(ARENA_SIZE_BYTES);
@@ -68,8 +65,6 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
-
-#endif /* ifdef SQLPARSER */
 
 int cmp(const void *a, const void *b) {
   const KV *akv = a;
@@ -158,99 +153,46 @@ int main_hashtable() {
   return 0;
 }
 
-#ifndef SQLPARSER
-
 #include "pokemon.h"
 
-int main_buffer(int argc, char *argv[]) {
-  // initialize start
-  BufferCache buffer = {0};
-  hashmap_init(&buffer.pagedir, 8);
-  hashmap_init(&buffer.pagetable, 4);
-
-  page_alloc(buffer, DBHEADER, "Database Header", (unsigned long)0);
-  DBHeader dbheader = {
-      .DBName = "DittoDB", .PageCount = 1, .FreeListHeader = -1};
-
-  page_insert_row(last_page(buffer), dbheader, sizeof(DBHeader));
-
-  // to disk;
-  int fd = open("ditto.db", O_CREAT | O_TRUNC | O_RDWR | O_SYNC | O_DIRECT,
-                S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
-
-  assert(fd >= 0);
-  ssize_t written = write(fd, buffer.buffer, buffer.used * DB_PAGE_SIZE);
-  assert(written >= 0);
-  close(fd);
-
-  buffer_flush(buffer);
-
-  fd = open("ditto.db", O_RDWR | O_SYNC | O_DIRECT,
-            S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
-
-  assert(fd >= 0);
-
-  Page *headerpage =
-      mmap(NULL, sizeof(Page), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-  Slot *slot = (Slot *)headerpage->data;
-  DBHeader *header = (DBHeader *)&headerpage->data[slot->DataLoc];
-
-  hashmap_append(&buffer.pagedir, "PAGE_DIRECTORY");
-  int idx = hashmap_find(&buffer.pagedir, "PAGE_DIRECTORY");
-  KV_append(buffer.pagedir.items[idx], header->PageCount);
-  page_alloc(buffer, PAGEDIR, "PAGE_DIRECTORY", header->PageCount);
-  header->PageCount++; // use auto increment outside of page_alloc because its a
-                       // macro, ++ may be carried out multiple times
-
-  hashmap_append(&buffer.pagedir, "TABLE_DEF");
-  idx = hashmap_find(&buffer.pagedir, "TABLE_DEF");
-  KV_append(buffer.pagedir.items[idx], header->PageCount);
-  page_alloc(buffer, TABLEPAGE, "TABLE_DEF", header->PageCount);
-  header->PageCount++;
-
-  insert_tabledef(buffer, "TABLE_DEF", "ObjName", 0, CHAR, 32);
-  insert_tabledef(buffer, "TABLE_DEF", "ColName", 1, CHAR, 32);
-  insert_tabledef(buffer, "TABLE_DEF", "Ord", 2, INTEGER, 2);
-  insert_tabledef(buffer, "TABLE_DEF", "DataType", 3, INTEGER, 4);
-  insert_tabledef(buffer, "TABLE_DEF", "DataTypeLen", 4, INTEGER, 2);
-
-  insert_tabledef(buffer, "PAGE_DIRECTORY", "ObjName", 0, CHAR, 32);
-  insert_tabledef(buffer, "PAGE_DIRECTORY", "PageNo", 1, INTEGER, 4);
-
-  // initialize end
-
-  typedef struct {
-    uint16_t id;
-    char text[32];
-  } table1;
-  hashmap_append(&buffer.pagedir, "table1");
-  idx = hashmap_find(&buffer.pagedir, "table1");
-  KV_append(buffer.pagedir.items[idx], header->PageCount);
-  page_alloc(buffer, TABLEPAGE, "table1", header->PageCount);
-  header->PageCount++;
-
-  insert_tabledef(buffer, "table1", "id", 0, INTEGER, 2);
-  insert_tabledef(buffer, "table1", "text", 1, CHAR, 32);
-
-  insert_pagedir(buffer);
-  insert_pagedir(buffer);
-  select_tabdef(buffer, TableDef);
-  puts("");
-  select_pagedir(buffer, PageDir);
-
-  checkpoint(buffer, "ditto.db");
-
-  close(fd);
-  hashmap_free(&buffer.pagetable);
-  free(buffer.buffer);
-  return 0;
-}
-
-int main() {
+int main_vm() {
   VM vm = {0};
-  VM_Instruction program[] = {vm_push(0), vm_push(1), vm_dup(1),
-                              vm_dup(1),  vm_add(),   vm_jmp(2)};
+  // VM_Instruction fib[] = {vm_push(0), vm_push(1), vm_dup(1),
+  //                             vm_dup(1),  vm_add(),   vm_jmp(2)};
 
+  // calculate pi/4 with taylor series of arctan (very slow)
+  // VM_Instruction program[] = {vm_push((Word){.as_f64 = -1}),
+  //                             vm_push((Word){.as_f64 = 1}),
+  //                             vm_push((Word){.as_f64 = 1}),
+  //                             vm_dup(2),
+  //                             vm_dup(2),
+  //                             vm_push((Word){.as_f64 = 2}),
+  //                             vm_fadd(),
+  //                             vm_dup(1),
+  //                             vm_dup(1),
+  //                             vm_fdiv(),
+  //                             vm_dup(3),
+  //                             vm_fadd(),
+  //                             vm_dup(2),
+  //                             vm_dup(2),
+  //                             vm_push((Word){.as_f64 = 2}),
+  //                             vm_fadd(),
+  //                             vm_dup(1),
+  //                             vm_dup(1),
+  //                             vm_fdiv(),
+  //                             vm_dup(3),
+  //                             vm_fsub(),
+  //                             vm_push((Word){.as_f64 = -1}),
+  //                             vm_fmul(),
+  //                             vm_jmp(3)};
+  //
+
+  VM_Instruction program[] = {
+      vm_push((Word){.as_i64 = 32}),
+      vm_push((Word){.as_i64 = 33}),
+      vm_swap(0),
+      vm_hlt(),
+  };
   while (!vm.halt) {
 
     vm_dump_stack_n_inst(vm, program);
@@ -260,6 +202,44 @@ int main() {
       vm_dump_stack_n_inst(vm, program);
       exit(1);
     }
+    fgetc(stdin);
   }
+  return 0;
 }
-#endif /* ifndef SQLPARSER */
+
+int main(int argc, char **argv) {
+  printf("hello world\n");
+  MemArea mem = {0};
+  init_mem(mem);
+  DB_Page page = {0};
+  page.pageheader.pageno = 23;
+  snprintf(page.pageheader.objname, OBJ_NAME_LEN, "%s", "hello world");
+  mem_append(&mem, page);
+
+  HashMap table_definition = {0}; // just type size
+  hashmap_init(&table_definition, 64);
+  mem_ast = region_init(ARENA_SIZE_BYTES);
+
+  Token *token = tokenize("create table t1 (id integer, txt char(64), txt2 "
+                          "char(8), number float, num2 float)");
+  print_token(token);
+
+  Node *ast = parse(token);
+  print_ast_tree(ast, 1);
+  SQL_Program prog = sql_program(ast);
+  printf("%d\n", prog.used);
+
+  VM vm = {0};
+  while (!vm.halt) {
+
+    vm_dump_stack_n_inst(vm, prog.items);
+    VM_Instruction_Signal sig = vm_exec_prog(&vm, prog.items, prog.used);
+    if (sig != INST_SIG_OK) {
+      printf("%s\n", vm_sig_as_cstr(sig));
+      vm_dump_stack_n_inst(vm, prog.items);
+      exit(1);
+    }
+  }
+  printf("%s\n", prog.items[0].operand.as_ptr);
+  return 0;
+}

@@ -22,14 +22,6 @@ unsigned long hash(char *str) {
   return hash;
 }
 
-void kv_init(KV *kv) {
-  assert(kv->capa == 0);
-  if (kv->capa == 0) {
-    kv->capa = 2;
-  }
-  kv->pageno = calloc(1, sizeof(*kv->pageno));
-}
-
 static int64_t hashmap_insert(HashMap *map, char *key) {
   assert(map->capa > map->cnt);
   unsigned long idx = hash(key) % map->capa;

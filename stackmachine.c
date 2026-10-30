@@ -1,3 +1,4 @@
+#include "stackmachine.h"
 #include "sqldb.h"
 #include <assert.h>
 #include <float.h>
@@ -26,7 +27,7 @@ VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
     vm->pinst++;
     break;
 
-  case INST_ADD:
+  case INST_IADD:
     if (vm->stack_size < 2) {
       return INST_SIG_UNDERFOW;
     }
@@ -36,7 +37,7 @@ VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
     vm->stack_size--;
     vm->pinst++;
     break;
-  case INST_SUB:
+  case INST_ISUB:
     if (vm->stack_size < 2) {
       return INST_SIG_UNDERFOW;
     }
@@ -46,7 +47,7 @@ VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
     vm->stack_size--;
     vm->pinst++;
     break;
-  case INST_MUL:
+  case INST_IMUL:
     if (vm->stack_size < 2) {
       return INST_SIG_UNDERFOW;
     }
@@ -56,7 +57,7 @@ VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
     vm->stack_size--;
     vm->pinst++;
     break;
-  case INST_DIV:
+  case INST_IDIV:
     if (vm->stack_size < 2) {
       return INST_SIG_UNDERFOW;
     }
@@ -66,6 +67,47 @@ VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
 
     vm->stack[vm->stack_size - 2].as_i64 /=
         vm->stack[vm->stack_size - 1].as_i64;
+    vm->stack_size--;
+    vm->pinst++;
+    break;
+
+  case INST_FADD:
+    if (vm->stack_size < 2) {
+      return INST_SIG_UNDERFOW;
+    }
+
+    vm->stack[vm->stack_size - 2].as_f64 +=
+        vm->stack[vm->stack_size - 1].as_f64;
+    vm->stack_size--;
+    vm->pinst++;
+    break;
+  case INST_FSUB:
+    if (vm->stack_size < 2) {
+      return INST_SIG_UNDERFOW;
+    }
+
+    vm->stack[vm->stack_size - 2].as_f64 -=
+        vm->stack[vm->stack_size - 1].as_f64;
+    vm->stack_size--;
+    vm->pinst++;
+    break;
+  case INST_FMUL:
+    if (vm->stack_size < 2) {
+      return INST_SIG_UNDERFOW;
+    }
+
+    vm->stack[vm->stack_size - 2].as_f64 *=
+        vm->stack[vm->stack_size - 1].as_f64;
+    vm->stack_size--;
+    vm->pinst++;
+    break;
+  case INST_FDIV:
+    if (vm->stack_size < 2) {
+      return INST_SIG_UNDERFOW;
+    }
+
+    vm->stack[vm->stack_size - 2].as_f64 /=
+        vm->stack[vm->stack_size - 1].as_f64;
     vm->stack_size--;
     vm->pinst++;
     break;
@@ -116,6 +158,34 @@ VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
     vm->stack_size++;
     vm->pinst++;
 
+    break;
+
+  case INST_SWAP:
+    if (vm->stack_size >= VM_STACK_SIZE) {
+      return INST_SIG_OVERFLOW;
+    }
+    if (vm->stack_size - instruction.operand.as_i64 <= 0) {
+      return INST_SIG_UNDERFOW;
+    }
+    if (instruction.operand.as_i64 < 0) {
+      return INST_SIG_ILLEGAL;
+    }
+    Word tmp = vm->stack[vm->stack_size - 1];
+    vm->stack[vm->stack_size - 1] =
+        vm->stack[vm->stack_size - instruction.operand.as_i64 - 1];
+    vm->stack[vm->stack_size - instruction.operand.as_i64 - 1] = tmp;
+    vm->pinst++;
+
+    break;
+
+  case INST_CREATE_TABLE:
+    if (vm->stack_size < 2) {
+      return INST_SIG_UNDERFOW;
+    }
+    vm->pinst++;
+    break;
+
+  case INST_DEFINE_COLUMN:
     break;
 
     // default:
@@ -184,16 +254,28 @@ const char *vm_ins_as_cstr(VM_Instruction ins) {
   switch (ins.inst_type) {
   case INST_NOP:
     return "INST_NOP";
+  case INST_CREATE_TABLE:
+    return "INST_CREATE_TABLE";
+  case INST_DEFINE_COLUMN:
+    return "INST_DEFINE_COLUMN";
   case INST_PUSH:
     return "INST_PUSH";
-  case INST_ADD:
-    return "INST_ADD";
-  case INST_SUB:
-    return "INST_SUB";
-  case INST_DIV:
-    return "INST_DIV";
-  case INST_MUL:
-    return "INST_MUL";
+  case INST_IADD:
+    return "INST_IADD";
+  case INST_ISUB:
+    return "INST_ISUB";
+  case INST_IDIV:
+    return "INST_IDIV";
+  case INST_IMUL:
+    return "INST_IMUL";
+  case INST_FADD:
+    return "INST_FADD";
+  case INST_FSUB:
+    return "INST_FSUB";
+  case INST_FDIV:
+    return "INST_FDIV";
+  case INST_FMUL:
+    return "INST_FMUL";
   case INST_JMP:
     return "INST_JMP";
   case INST_HLT:
@@ -204,41 +286,63 @@ const char *vm_ins_as_cstr(VM_Instruction ins) {
     return "INST_EQ";
   case INST_DUP:
     return "INST_DUP";
+  case INST_SWAP:
+    return "INST_SWAP";
   }
   return NULL;
 }
 
-VM_Instruction vm_push(int64_t operand) {
+VM_Instruction vm_push(Word operand) {
   return (VM_Instruction){
       .inst_type = INST_PUSH,
-      .operand = {.as_i64 = operand},
+      .operand = operand,
   };
 }
 
-VM_Instruction vm_add() {
+VM_Instruction vm_iadd() {
   return (VM_Instruction){
-      .inst_type = INST_ADD,
+      .inst_type = INST_IADD,
   };
 }
-
+VM_Instruction vm_fadd() {
+  return (VM_Instruction){
+      .inst_type = INST_FADD,
+  };
+}
 VM_Instruction vm_jmp(size_t pinst) {
   return (VM_Instruction){.inst_type = INST_JMP, .operand = {.as_i64 = pinst}};
 }
-VM_Instruction vm_halt() { return (VM_Instruction){.inst_type = INST_HLT}; }
+VM_Instruction vm_hlt() { return (VM_Instruction){.inst_type = INST_HLT}; }
 
-VM_Instruction vm_sub() {
+VM_Instruction vm_isub() {
   return (VM_Instruction){
-      .inst_type = INST_SUB,
+      .inst_type = INST_ISUB,
   };
 }
-VM_Instruction vm_mul() {
+VM_Instruction vm_imul() {
   return (VM_Instruction){
-      .inst_type = INST_MUL,
+      .inst_type = INST_IMUL,
   };
 }
-VM_Instruction vm_div() {
+VM_Instruction vm_idiv() {
   return (VM_Instruction){
-      .inst_type = INST_DIV,
+      .inst_type = INST_IDIV,
+  };
+}
+
+VM_Instruction vm_fsub() {
+  return (VM_Instruction){
+      .inst_type = INST_FSUB,
+  };
+}
+VM_Instruction vm_fmul() {
+  return (VM_Instruction){
+      .inst_type = INST_FMUL,
+  };
+}
+VM_Instruction vm_fdiv() {
+  return (VM_Instruction){
+      .inst_type = INST_FDIV,
   };
 }
 
@@ -255,3 +359,13 @@ VM_Instruction vm_dup(size_t pstack) {
   return (VM_Instruction){.inst_type = INST_DUP, .operand = {.as_i64 = pstack}};
 }
 VM_Instruction vm_nop() { return (VM_Instruction){0}; }
+VM_Instruction vm_swap(size_t pstack) {
+  return (VM_Instruction){.inst_type = INST_SWAP,
+                          .operand = {.as_i64 = pstack}};
+}
+VM_Instruction vm_create_table() {
+  return (VM_Instruction){.inst_type = INST_CREATE_TABLE};
+}
+VM_Instruction vm_define_column() {
+  return (VM_Instruction){.inst_type = INST_DEFINE_COLUMN};
+}

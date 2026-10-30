@@ -85,11 +85,20 @@ char *get_node_type(Node *node) {
   return nodetypestr[node->type.nodetype];
 }
 
-void print_ast(Node *node, int depth) {
+void print_ast_tree(Node *node, int depth) {
   assert(node);
   printf("%-3d| %*s %s (%s %s)\n", depth, 1 * depth, "|", node->token->str,
          get_exact_type(node), get_node_type(node));
   for (size_t i = 0; i < node->childs->cnt; i++) {
+    Node *cur_node = at(node->childs, i);
+    print_ast_tree(cur_node, depth + 1);
+  }
+}
+
+void print_ast(Node *node, int depth) {
+  assert(node);
+  printf("%s ", node->token->str);
+  for (int i = 0; i < node->childs->cnt; i++) {
     Node *cur_node = at(node->childs, i);
     print_ast(cur_node, depth + 1);
   }
@@ -522,8 +531,10 @@ Node *parse_create(Token **token, int min_bp) {
     *token = (*token)->next; // token to datatype
     Node *datatype = node_from_token(*token);
     if (datatype->type.exacttype == DTYPE) {
-      append(datatype->childs, lhs);
-      datatype->expr_lhs = lhs;
+      // append(datatype->childs, lhs);
+      // datatype->expr_lhs = lhs;
+      append(lhs->childs, datatype);
+      lhs->expr_lhs = datatype;
 
       if (strncasecmp(datatype->token->str, "char",
                       strlen(datatype->token->str)) == 0) {
@@ -537,12 +548,12 @@ Node *parse_create(Token **token, int min_bp) {
         }
         *token = (*token)->next; // char(8), cursor to size
         Node *datatype_size = node_from_token(*token);
-        append(datatype->childs, datatype_size);
-        datatype->expr_lhs = datatype_size;
+        append(lhs->childs, datatype_size);
+        lhs->expr_lhs = datatype_size;
         *token = (*token)->next; // char(8), cursor to RPAREN
       }
 
-      lhs = datatype;
+      // lhs = datatype;
     } else {
       fprintf(stderr, "[ERROR] at CREATE parsing phase\n");
       fprintf(stderr, "[ERROR] datatype expected, but get \"%s\"\n",
@@ -893,7 +904,9 @@ Node *parse(Token *token) {
           return NULL;
         }
 
+        Node *tmp = cur_node;
         append(cur_node->childs, node);
+        cur_node->expr_lhs = node;
         cur_node = last(cur_node->childs);
         token = token->next; // skip "table"
         node = node_from_token(token);
@@ -903,8 +916,9 @@ Node *parse(Token *token) {
                   node->token->str);
           return NULL;
         }
-        append(cur_node->childs, node);
-        cur_node = last(cur_node->childs);
+        append(tmp->childs, node);
+        tmp->expr_rhs = node;
+        cur_node = root;
         token = token->next; // skip tablename
 
         node = node_from_token(token);
