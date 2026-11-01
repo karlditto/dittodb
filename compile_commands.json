@@ -1,0 +1,192 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-ggdb",
+      "-Wall",
+      "-Wextra",
+      "-Wno-unused-parameter",
+      "-Wno-unused-local-typedefs",
+      "-Wimplicit-fallthrough",
+      "-I./",
+      "-o",
+      "sql",
+      "array.c"
+    ],
+    "directory": "/home/karl/Projects/sqldb",
+    "file": "/home/karl/Projects/sqldb/array.c",
+    "output": "/home/karl/Projects/sqldb/sql"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-ggdb",
+      "-Wall",
+      "-Wextra",
+      "-Wno-unused-parameter",
+      "-Wno-unused-local-typedefs",
+      "-Wimplicit-fallthrough",
+      "-I./",
+      "-o",
+      "sql",
+      "dbpage.c"
+    ],
+    "directory": "/home/karl/Projects/sqldb",
+    "file": "/home/karl/Projects/sqldb/dbpage.c",
+    "output": "/home/karl/Projects/sqldb/sql"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-ggdb",
+      "-Wall",
+      "-Wextra",
+      "-Wno-unused-parameter",
+      "-Wno-unused-local-typedefs",
+      "-Wimplicit-fallthrough",
+      "-I./",
+      "-o",
+      "sql",
+      "hashmap.c"
+    ],
+    "directory": "/home/karl/Projects/sqldb",
+    "file": "/home/karl/Projects/sqldb/hashmap.c",
+    "output": "/home/karl/Projects/sqldb/sql"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-ggdb",
+      "-Wall",
+      "-Wextra",
+      "-Wno-unused-parameter",
+      "-Wno-unused-local-typedefs",
+      "-Wimplicit-fallthrough",
+      "-I./",
+      "-o",
+      "sql",
+      "main.c"
+    ],
+    "directory": "/home/karl/Projects/sqldb",
+    "file": "/home/karl/Projects/sqldb/main.c",
+    "output": "/home/karl/Projects/sqldb/sql"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-ggdb",
+      "-Wall",
+      "-Wextra",
+      "-Wno-unused-parameter",
+      "-Wno-unused-local-typedefs",
+      "-Wimplicit-fallthrough",
+      "-I./",
+      "-o",
+      "sql",
+      "parse.c"
+    ],
+    "directory": "/home/karl/Projects/sqldb",
+    "file": "/home/karl/Projects/sqldb/parse.c",
+    "output": "/home/karl/Projects/sqldb/sql"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-ggdb",
+      "-Wall",
+      "-Wextra",
+      "-Wno-unused-parameter",
+      "-Wno-unused-local-typedefs",
+      "-Wimplicit-fallthrough",
+      "-I./",
+      "-o",
+      "sql",
+      "region.c"
+    ],
+    "directory": "/home/karl/Projects/sqldb",
+    "file": "/home/karl/Projects/sqldb/region.c",
+    "output": "/home/karl/Projects/sqldb/sql"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-ggdb",
+      "-Wall",
+      "-Wextra",
+      "-Wno-unused-parameter",
+      "-Wno-unused-local-typedefs",
+      "-Wimplicit-fallthrough",
+      "-I./",
+      "-o",
+      "sql",
+      "sqlengine.c"
+    ],
+    "directory": "/home/karl/Projects/sqldb",
+    "file": "/home/karl/Projects/sqldb/sqlengine.c",
+    "output": "/home/karl/Projects/sqldb/sql"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-ggdb",
+      "-Wall",
+      "-Wextra",
+      "-Wno-unused-parameter",
+      "-Wno-unused-local-typedefs",
+      "-Wimplicit-fallthrough",
+      "-I./",
+      "-o",
+      "sql",
+      "stackmachine.c"
+    ],
+    "directory": "/home/karl/Projects/sqldb",
+    "file": "/home/karl/Projects/sqldb/stackmachine.c",
+    "output": "/home/karl/Projects/sqldb/sql"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-ggdb",
+      "-Wall",
+      "-Wextra",
+      "-Wno-unused-parameter",
+      "-Wno-unused-local-typedefs",
+      "-Wimplicit-fallthrough",
+      "-I./",
+      "-o",
+      "sql",
+      "stringview.c"
+    ],
+    "directory": "/home/karl/Projects/sqldb",
+    "file": "/home/karl/Projects/sqldb/stringview.c",
+    "output": "/home/karl/Projects/sqldb/sql"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-ggdb",
+      "-Wall",
+      "-Wextra",
+      "-Wno-unused-parameter",
+      "-Wno-unused-local-typedefs",
+      "-Wimplicit-fallthrough",
+      "-I./",
+      "-o",
+      "sql",
+      "tokenize.c"
+    ],
+    "directory": "/home/karl/Projects/sqldb",
+    "file": "/home/karl/Projects/sqldb/tokenize.c",
+    "output": "/home/karl/Projects/sqldb/sql"
+  }
+]

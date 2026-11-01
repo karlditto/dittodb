@@ -39,7 +39,7 @@ static bool is_operator(const char *token) {
 }
 
 static bool is_datatype(const char *token) {
-  const char *DTYPE[] = {"CHAR", "BOOLEAN", "INTEGER", "FLOAT"};
+  const char *DTYPE[] = {"CHAR",  "INTEGER", "FLOAT"};
   for (size_t i = 0; i < sizeof(DTYPE) / sizeof(char *); i++) {
     if (strcasecmp(token, DTYPE[i]) == 0) {
       return true;

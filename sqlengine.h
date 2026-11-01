@@ -1,8 +1,10 @@
+#pragma once
 #include "hashmap.h"
 #include "parse.h"
 #include "sqldb.h"
 #include "stackmachine.h"
 #include <stddef.h>
+#include <stdint.h>
 typedef enum {
   SQL_TYPE_INT,
   SQL_TYPE_FLOAT,
@@ -24,7 +26,7 @@ typedef struct {
 
 typedef struct {
   char colname[OBJ_NAME_LEN];
-  char type[8];
+  TokenType type;
   int len;
 } SQL_Col_Def;
 
@@ -33,6 +35,21 @@ typedef struct {
   size_t size;
   size_t used;
 } SQL_Col_Def_Array;
+
+typedef struct {
+  TokenType datatype;
+  union {
+    char *as_str;
+    int64_t as_int;
+    double as_float;
+  } val;
+} SQL_Insert_Val;
+
+typedef struct {
+  SQL_Insert_Val *items;
+  size_t size;
+  size_t used;
+} SQL_Insert_Val_Array;
 
 #define sql_push(xs, x)                                                        \
   do {                                                                         \
@@ -48,3 +65,6 @@ typedef struct {
 
 SQL_Program sql_program(Node *ast);
 SQL_Program sql_gen_prog_from_ast_arr(Ast_Array ast);
+void sql_exec_sql_text(char *sql_text, VM *vm, MemArea *mem,
+                       HashMap *table_definition);
+void sql_ins_buf_to_page(DB_Page *page, char *buf, int buf_size);

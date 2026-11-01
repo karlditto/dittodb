@@ -1,3 +1,4 @@
+#include "parse.h"
 #include "sqldb.h"
 #include <assert.h>
 #include <complex.h>
@@ -63,6 +64,7 @@ static char *get_exact_type(Node *node) {
   exacttypestr[NOT] = "NOT";
   exacttypestr[COMMA] = "COMMA";
   exacttypestr[EQ] = "EQ";
+  exacttypestr[NEQ] = "NEQ";
   exacttypestr[LT] = "LT";
   exacttypestr[LEQ] = "LEQ";
   exacttypestr[GT] = "GT";
@@ -129,6 +131,9 @@ static BindPower bindpower_lookup(Token *token) {
   if (strcasecmp(token->str, "=") == 0) {
     return (BindPower){.lhs = 4, .rhs = 3};
   }
+  if (strcasecmp(token->str, "<>") == 0) {
+    return (BindPower){.lhs = 4, .rhs = 3};
+  }
   if (strcasecmp(token->str, "and") == 0) {
     return (BindPower){.lhs = 1, .rhs = 2};
   }
@@ -168,7 +173,11 @@ static Node *node_from_token(Token *token) {
     node->type.nodetype = EXPRESSION;
     node->type.exacttype = ATOM;
     return node;
-  case NUMERIC:
+  case INTEGER:
+    node->type.nodetype = EXPRESSION;
+    node->type.exacttype = ATOM;
+    return node;
+  case FLOAT:
     node->type.nodetype = EXPRESSION;
     node->type.exacttype = ATOM;
     return node;
@@ -208,6 +217,10 @@ static Node *node_from_token(Token *token) {
     }
     if (strcasecmp(token->str, "=") == 0) {
       node->type.exacttype = EQ;
+      return node;
+    }
+    if (strcasecmp(token->str, "<>") == 0) {
+      node->type.exacttype = NEQ;
       return node;
     }
     if (strcasecmp(token->str, ">") == 0) {
@@ -939,6 +952,7 @@ Node *parse(Token *token) {
 
       case INSERT:
         cur_node = root;
+        Node *insert_tmp = cur_node;
         append(cur_node->childs, node);
         cur_node = last(cur_node->childs);
         token = token->next; // skip "insert"
@@ -950,6 +964,7 @@ Node *parse(Token *token) {
                   node->token->str);
           return NULL;
         }
+
         append(cur_node->childs, node);
         cur_node = last(cur_node->childs);
         token = token->next; // skip "into"
@@ -973,8 +988,8 @@ Node *parse(Token *token) {
                   node->token->str);
           return NULL;
         }
-        append(cur_node->childs, node);
-        cur_node = last(cur_node->childs);
+        append(insert_tmp->childs, node);
+        cur_node = last(insert_tmp->childs);
         token = token->next; // skip values
 
         node = node_from_token(token);

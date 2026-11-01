@@ -1,3 +1,4 @@
+#include "parse.h"
 #include "sqldb.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,7 +30,8 @@ char *get_token_type(const Token *token) {
   typestr[KEYWORD] = "keyword";
   typestr[IDENTIFIER] = "identifier";
   typestr[STRING] = "string literal";
-  typestr[NUMERIC] = "numeric literal";
+  typestr[INTEGER] = "integer literal";
+  typestr[FLOAT] = "float literal";
   typestr[EOQ] = "EOQ";
   typestr[OPERATOR] = "operator";
   typestr[DATATYPE] = "datatype";
@@ -48,7 +50,7 @@ static size_t match_dtype(const char *s) {
   int NUM_MATCHES = 1;
   regex_t re;
   regmatch_t match[NUM_MATCHES];
-  const char *pattern = "^(char|boolean|integer|float)\\b";
+  const char *pattern = "^(char|integer|float)\\b";
 
   if (regcomp(&re, pattern, REG_ICASE | REG_EXTENDED)) {
     perror("regex compilation failed");
@@ -214,7 +216,7 @@ static size_t match_operator(const char *s) {
   regmatch_t match[NUM_MATCHES];
   // const char *pattern =
   //     "^(\\+|-|\\*|/|=|<>|<|>|<=|>=|IS\\b|LIKE\\b|NOT\\b|AND\\b|OR\\b)";
-  const char *pattern = "^(\\+|-|\\*|/|\\(|\\)|,|=|>|>=|<|<=|or|and)";
+  const char *pattern = "^(\\+|-|\\*|/|\\(|\\)|,|<>|=|>|>=|<|<=|or|and)";
 
   if (regcomp(&re, pattern, REG_ICASE | REG_EXTENDED)) {
     perror("regex compilation failed");
@@ -253,7 +255,7 @@ Token *tokenize(char *s) {
 
     len = match_float(s);
     if (len) {
-      cur->next = new_token(NUMERIC, s, len);
+      cur->next = new_token(FLOAT, s, len);
       char *buf = region_alloc(&mem_ast, len + 1);
       sprintf(buf, "%.*s", (int)len, s);
       cur->next->fval = strtold(buf, NULL);
@@ -264,7 +266,7 @@ Token *tokenize(char *s) {
     }
     len = match_integer(s);
     if (len) {
-      cur->next = new_token(NUMERIC, s, len);
+      cur->next = new_token(INTEGER, s, len);
       char *buf = region_alloc(&mem_ast, len + 1);
       sprintf(buf, "%.*s", (int)len, s);
       cur->next->ival = strtoll(buf, NULL, 10);

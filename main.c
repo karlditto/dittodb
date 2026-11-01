@@ -1,6 +1,8 @@
 #include "hashmap.h"
 #include "parse.h"
 #include "sqldb.h"
+#include "sqlengine.h"
+#include "stackmachine.h"
 #include <assert.h>
 #include <fcntl.h>
 #include <iso646.h>
@@ -207,39 +209,124 @@ int main_vm() {
   return 0;
 }
 
+int global_pageno = 0;
+#define str(x) #x
 int main(int argc, char **argv) {
-  printf("hello world\n");
   MemArea mem = {0};
   init_mem(mem);
-  DB_Page page = {0};
-  page.pageheader.pageno = 23;
-  snprintf(page.pageheader.objname, OBJ_NAME_LEN, "%s", "hello world");
-  mem_append(&mem, page);
 
-  HashMap table_definition = {0}; // just type size
+  HashMap table_definition = {0};
   hashmap_init(&table_definition, 64);
   mem_ast = region_init(ARENA_SIZE_BYTES);
 
-  Token *token = tokenize("create table t1 (id integer, txt char(64), txt2 "
-                          "char(8), number float, num2 float)");
-  print_token(token);
+  // TEST: TEST CREATE
+  Token *token =
+      tokenize("create table t1 (id integer, txt char(16), remark char(32))");
 
   Node *ast = parse(token);
-  print_ast_tree(ast, 1);
+  // print_ast_tree(ast, 1);
   SQL_Program prog = sql_program(ast);
-  printf("%d\n", prog.used);
+  // vm_dump_inst(prog.items, prog.used);
 
   VM vm = {0};
   while (!vm.halt) {
-
-    vm_dump_stack_n_inst(vm, prog.items);
+    // vm_dump_stack_n_inst(vm, prog.items);
     VM_Instruction_Signal sig = vm_exec_prog(&vm, prog.items, prog.used);
     if (sig != INST_SIG_OK) {
       printf("%s\n", vm_sig_as_cstr(sig));
-      vm_dump_stack_n_inst(vm, prog.items);
+      // vm_dump_stack_n_inst(vm, prog.items);
       exit(1);
     }
   }
-  printf("%s\n", prog.items[0].operand.as_ptr);
+
+  DB_Page *thispage = vm.stack[0].as_ptr;        // extract page from stack;
+  thispage->pageheader.pageno = global_pageno++; // set its pageno
+  int idx = hashmap_append(&mem.pagedir, thispage->pageheader.objname);
+  KV_append(mem.pagedir.items[idx], thispage->pageheader.pageno);
+
+  SQL_Col_Def_Array *col_def_arr = vm.stack[1].as_ptr;
+  mem_append(&mem, *thispage);
+  idx = hashmap_append(&table_definition, thispage->pageheader.objname);
+  KV_append(table_definition.items[idx], (uint64_t)col_def_arr);
+
+  free(prog.items);
+
+  // TEST: TEST INSERT
+  token = tokenize("insert into t1 values(1337,'hello "
+                   "world', 'haha you suck')");
+  ast = parse(token);
+  // print_ast_tree(ast, 1);
+  prog = sql_program(ast);
+  // vm_dump_inst(prog.items, prog.used);
+
+  vm.stack_size = 0;
+  vm.halt = 0;
+  vm.pinst = 0;
+  while (!vm.halt) {
+    // vm_dump_stack_n_inst(vm, prog.items);
+    VM_Instruction_Signal sig = vm_exec_prog(&vm, prog.items, prog.used);
+    if (sig != INST_SIG_OK) {
+      printf("%s\n", vm_sig_as_cstr(sig));
+      // vm_dump_stack_n_inst(vm, prog.items);
+      exit(1);
+    }
+  }
+  char *ins_tabname = vm.stack[0].as_ptr;
+  SQL_Insert_Val_Array *ins_val_arr = vm.stack[1].as_ptr;
+  // insert values checked against table definition;
+  assert(col_def_arr->used == ins_val_arr->used &&
+         "Insert values number mismatch with table definition");
+  for (int i = 0; i < ins_val_arr->used; i++) {
+    assert(col_def_arr->items[i].type == ins_val_arr->items[i].datatype &&
+           "Insert values type mismatch with table definition");
+  }
+  idx = hashmap_find(&mem.pagedir, ins_tabname);
+  int pageno = mem.pagedir.items[idx].pageno[0];
+  char pageno_str[32];
+  sprintf(pageno_str, "%d", pageno);
+  idx = hashmap_find(&mem.pagetable, pageno_str);
+  int memloc = mem.pagetable.items[idx].pageno[0];
+
+  // calculate tupesize
+  int tupesize = 0;
+  for (int i = 0; i < col_def_arr->used; i++) {
+    tupesize += col_def_arr->items[i].len;
+  }
+  char buf[tupesize];
+  memset(buf, 0, tupesize);
+  int offset = 0;
+  for (int i = 0; i < ins_val_arr->used; i++) {
+    int len = col_def_arr->items[i].len;
+    if (ins_val_arr->items[i].datatype == STRING) {
+      memcpy(buf + offset, ins_val_arr->items[i].val.as_str,
+             strlen(ins_val_arr->items[i].val.as_str));
+    } else {
+      memcpy(buf + offset, &ins_val_arr->items[i].val.as_int, len);
+    }
+    offset += len;
+  }
+  sql_ins_buf_to_page(mem.buffer + memloc, buf, tupesize);
+
+  // TEST: TEST SELECT;
+  token = tokenize("select * from t1 where id = 1337 and txt = 'hello world' ");
+  print_token(token);
+  ast = parse(token);
+  print_ast_tree(ast, 1);
+  prog = sql_program(ast);
+
+  // NOTE: FREE HEAP MEMORY
+
+  region_free(&mem_ast);
+
+  free(ins_val_arr->items);
+  free(col_def_arr->items);
+  free(ins_val_arr);
+  free(col_def_arr);
+  hashmap_free(&mem.pagetable);
+  hashmap_free(&mem.pagedir);
+  free(mem.buffer);
+  hashmap_free(&table_definition);
+  free(prog.items);
+  free(thispage);
   return 0;
 }

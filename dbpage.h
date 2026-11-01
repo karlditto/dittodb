@@ -18,7 +18,6 @@ typedef struct {
   char objname[32];
   uint32_t pageno; // start from 0;
   uint32_t slotno;
-  uint32_t tuplesize;
   uint32_t freespace;
   uint32_t freespacetr; // start from the end of the data section
   int nextpage;
@@ -71,3 +70,4 @@ typedef struct {
   } while (0);
 
 void mem_append(MemArea *mem, DB_Page page);
+void init_page(DB_Page *page, char *objname);

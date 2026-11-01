@@ -1,5 +1,8 @@
 #include "stackmachine.h"
+#include "hashmap.h"
+#include "parse.h"
 #include "sqldb.h"
+#include "sqlengine.h"
 #include <assert.h>
 #include <float.h>
 #include <stddef.h>
@@ -179,13 +182,68 @@ VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
     break;
 
   case INST_CREATE_TABLE:
-    if (vm->stack_size < 2) {
+    if (vm->stack_size < 1) {
       return INST_SIG_UNDERFOW;
     }
+    DB_Page *page = calloc(1, sizeof(DB_Page));
+    init_page(page, vm->stack[vm->stack_size - 1].as_ptr);
+    vm->stack[vm->stack_size - 1].as_ptr = page;
+    SQL_Col_Def_Array *col_def_arr = calloc(1, sizeof(SQL_Col_Def_Array));
+    if (vm->stack_size >= VM_STACK_SIZE) {
+      return INST_SIG_OVERFLOW;
+    }
+    vm->stack[vm->stack_size++].as_ptr = col_def_arr;
     vm->pinst++;
     break;
 
   case INST_DEFINE_COLUMN:
+    if (vm->stack_size < 4) {
+      return INST_SIG_UNDERFOW;
+    }
+    SQL_Col_Def_Array *col_def_arr_tmp = vm->stack[vm->stack_size - 4].as_ptr;
+    SQL_Col_Def col_def_tmp = {0};
+    strncpy(col_def_tmp.colname, vm->stack[vm->stack_size - 3].as_ptr,
+            OBJ_NAME_LEN);
+    col_def_tmp.type = vm->stack[vm->stack_size - 2].as_i64;
+    col_def_tmp.len = vm->stack[vm->stack_size - 1].as_i64;
+    sql_push((*col_def_arr_tmp), col_def_tmp);
+    vm->stack_size -= 3;
+    vm->pinst++;
+    break;
+
+  case INST_INSERT_PREP:
+    if (vm->stack_size >= VM_STACK_SIZE) {
+      return INST_SIG_OVERFLOW;
+    }
+    SQL_Insert_Val_Array *ins_val_arr = calloc(1, sizeof(SQL_Insert_Val_Array));
+    vm->stack[vm->stack_size++].as_ptr = ins_val_arr;
+    vm->pinst++;
+
+    break;
+
+  case INST_INSERT_VALUE:
+    if (vm->stack_size < 2) {
+      return INST_SIG_UNDERFOW;
+    }
+    SQL_Insert_Val_Array *ins_val_arr_tmp =
+        vm->stack[vm->stack_size - 3].as_ptr;
+    SQL_Insert_Val ins_val = {0};
+    if (vm->stack[vm->stack_size - 2].as_i64 == INTEGER) {
+      ins_val.datatype = INTEGER;
+      ins_val.val.as_int = vm->stack[vm->stack_size - 1].as_i64;
+    }
+    if (vm->stack[vm->stack_size - 2].as_i64 == FLOAT) {
+      ins_val.datatype = FLOAT;
+      ins_val.val.as_float = vm->stack[vm->stack_size - 1].as_f64;
+    }
+    if (vm->stack[vm->stack_size - 2].as_i64 == STRING) {
+      ins_val.datatype = STRING;
+      ins_val.val.as_str = vm->stack[vm->stack_size - 1].as_ptr;
+    }
+    sql_push((*ins_val_arr_tmp), ins_val);
+    vm->stack_size -= 2;
+    vm->pinst++;
+
     break;
 
     // default:
@@ -203,6 +261,15 @@ void vm_dump_stack(VM vm) {
            "i64:%ld u64:%lu f64:%lf ptr:%p\n",
            i, vm.stack[i].as_i64, vm.stack[i].as_u64, vm.stack[i].as_f64,
            vm.stack[i].as_ptr);
+  }
+}
+
+void vm_dump_inst(VM_Instruction *program, int program_size) {
+  puts("Program instruction");
+  for (int i = 0; i < program_size; i++) {
+    printf("[%3d]:"
+           "%s\n",
+           i, vm_ins_as_cstr(program[i]));
   }
 }
 
@@ -288,6 +355,10 @@ const char *vm_ins_as_cstr(VM_Instruction ins) {
     return "INST_DUP";
   case INST_SWAP:
     return "INST_SWAP";
+  case INST_INSERT_VALUE:
+    return "INST_INSERT_VALUE";
+  case INST_INSERT_PREP:
+    return "INST_INSERT_PREP";
   }
   return NULL;
 }

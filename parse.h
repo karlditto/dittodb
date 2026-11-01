@@ -48,7 +48,8 @@ typedef enum {
   KEYWORD,    // keyword
   IDENTIFIER, // identifier
   STRING,     // string literal
-  NUMERIC,    // numeric literal
+  INTEGER,    // integer literal
+  FLOAT,      // float literal
   EOQ,        // EOF
   OPERATOR,   // operator
   DATATYPE,   // datatype
@@ -108,6 +109,7 @@ typedef enum {
   NOT,
   COMMA,
   EQ,
+  NEQ,
   LT,
   LEQ,
   GT,

@@ -1,3 +1,4 @@
+#include "hashmap.h"
 #include "sqldb.h"
 #include <assert.h>
 #include <stdint.h>
@@ -29,6 +30,14 @@ void mem_append(MemArea *mem, DB_Page page) {
   snprintf(pageno_str, OBJ_NAME_LEN, "%u", page.pageheader.pageno);
   int idx = hashmap_append(&mem->pagetable, pageno_str);
   assert(idx >= 0 && "Hash map failed to append value");
-  snprintf(mem->pagetable.items[idx].objname, OBJ_NAME_LEN, "%s", pageno_str);
+  snprintf(mem->pagetable.items[idx].objname, OBJ_NAME_LEN, "%u",
+           page.pageheader.pageno);
   KV_append(mem->pagetable.items[idx], memloc);
+}
+
+void init_page(DB_Page *page, char *objname) {
+  strncpy(page->pageheader.objname, objname, OBJ_NAME_LEN);
+  page->pageheader.nextpage = -1;
+  page->pageheader.freespace = sizeof(page->data);
+  page->pageheader.freespacetr = sizeof(page->data) - 1;
 }

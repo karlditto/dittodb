@@ -38,11 +38,16 @@ typedef enum {
   INST_JNZ,
   INST_EQ,
   INST_HLT,
-  INST_CREATE_TABLE,  // use 2 stack value at the top, and consume them,
-                      // it's tablename and tuplesoze, then the address of
-                      // DB_Page malloced is push to the stack
-  INST_DEFINE_COLUMN, // use 3 stack values at the top, consume top 3, they are
-                      // colname, length, type
+  INST_CREATE_TABLE, // use 1 stack value at the top, and consume it,
+                     // it's tablename, then the address of
+                     // DB_Page malloced is push to the stack , also the address
+                     // of a struct representing table defnition is pushed to
+                     // stack
+  INST_DEFINE_COLUMN, // use 4 stack values at the top, consume top 3, they are
+                      // table defnition struct,colname, type, length
+  INST_INSERT_PREP,   // malloc struct for following operation
+  INST_INSERT_VALUE,  // use 3 stack values, consume 2;
+  // they are struct, datatype and value;
   INST_COUNT,
 } VM_Instruction_Type;
 
@@ -70,6 +75,7 @@ typedef struct {
 VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
                                    size_t program_size);
 void vm_dump_stack(VM vm);
+void vm_dump_inst(VM_Instruction program[], int program_size);
 void vm_dump_stack_n_inst(VM vm, VM_Instruction program[]);
 const char *vm_sig_as_cstr(VM_Instruction_Signal signal);
 const char *vm_ins_as_cstr(VM_Instruction ins);
@@ -89,5 +95,3 @@ VM_Instruction vm_eq();
 VM_Instruction vm_jnz(size_t pinst);
 VM_Instruction vm_nop();
 VM_Instruction vm_swap(size_t pstack);
-VM_Instruction vm_create_table();
-VM_Instruction vm_define_column();
