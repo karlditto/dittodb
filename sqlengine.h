@@ -65,6 +65,6 @@ typedef struct {
 
 SQL_Program sql_program(Node *ast);
 SQL_Program sql_gen_prog_from_ast_arr(Ast_Array ast);
-void sql_exec_sql_text(char *sql_text, VM *vm, MemArea *mem,
-                       HashMap *table_definition);
+void sql_exec_select(char *sql_text, VM *vm, MemArea *mem,
+                     HashMap *table_definition);
 void sql_ins_buf_to_page(DB_Page *page, char *buf, int buf_size);

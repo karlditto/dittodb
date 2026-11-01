@@ -218,6 +218,7 @@ int main(int argc, char **argv) {
   HashMap table_definition = {0};
   hashmap_init(&table_definition, 64);
   mem_ast = region_init(ARENA_SIZE_BYTES);
+  VM vm = {0};
 
   // TEST: TEST CREATE
   Token *token =
@@ -228,7 +229,6 @@ int main(int argc, char **argv) {
   SQL_Program prog = sql_program(ast);
   // vm_dump_inst(prog.items, prog.used);
 
-  VM vm = {0};
   while (!vm.halt) {
     // vm_dump_stack_n_inst(vm, prog.items);
     VM_Instruction_Signal sig = vm_exec_prog(&vm, prog.items, prog.used);

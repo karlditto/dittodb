@@ -170,11 +170,13 @@ void sql_ins_buf_to_page(DB_Page *page, char *buf, int buf_size) {
   page->pageheader.slotno += 1;
 }
 
-void sql_exec_sql_text(char *sql_text, VM *vm, MemArea *mem,
-                       HashMap *table_definition) {
+void sql_exec_select(char *sql_text, VM *vm, MemArea *mem,
+                     HashMap *table_definition) {
   Token *token = tokenize(sql_text);
   Node *ast = parse(token);
   SQL_Program prog = sql_program(ast);
+  // vm_dump_inst(prog.items, prog.used);
+  //
   while (!vm->halt) {
     // vm_dump_stack_n_inst(vm, prog.items);
     VM_Instruction_Signal sig = vm_exec_prog(vm, prog.items, prog.used);
@@ -196,4 +198,67 @@ void sql_exec_sql_text(char *sql_text, VM *vm, MemArea *mem,
   KV_append(table_definition->items[idx], (uint64_t)col_def_arr);
 
   free(prog.items);
+  free(col_def_arr->items);
+  free(col_def_arr);
+}
+
+void sql_exec_insert(char *sql_text, VM *vm, HashMap table_definition,
+                     MemArea *mem) {
+
+  Token *token = tokenize(sql_text);
+  Node *ast = parse(token);
+  SQL_Program prog = sql_program(ast);
+  // vm_dump_inst(prog.items, prog.used);
+  while (!vm->halt) {
+    // vm_dump_stack_n_inst(vm, prog.items);
+    VM_Instruction_Signal sig = vm_exec_prog(vm, prog.items, prog.used);
+    if (sig != INST_SIG_OK) {
+      printf("%s\n", vm_sig_as_cstr(sig));
+      // vm_dump_stack_n_inst(vm, prog.items);
+      exit(1);
+    }
+  }
+  char *ins_tabname = vm->stack[0].as_ptr;
+  SQL_Insert_Val_Array *ins_val_arr = vm->stack[1].as_ptr;
+  // insert values checked against table definition;
+  int table_def_idx = hashmap_append(&table_definition, ins_tabname);
+  SQL_Col_Def_Array *col_def_arr =
+      (SQL_Col_Def_Array *)table_definition.items[table_def_idx].pageno;
+  assert(col_def_arr->used == ins_val_arr->used &&
+         "Insert values number mismatch with table definition");
+  for (int i = 0; i < ins_val_arr->used; i++) {
+    assert(col_def_arr->items[i].type == ins_val_arr->items[i].datatype &&
+           "Insert values type mismatch with table definition");
+  }
+
+  int idx = hashmap_find(&mem->pagedir, ins_tabname);
+  int pageno = mem->pagedir.items[idx].pageno[0];
+  char pageno_str[32];
+  sprintf(pageno_str, "%d", pageno);
+  idx = hashmap_find(&mem->pagetable, pageno_str);
+  int memloc = mem->pagetable.items[idx].pageno[0];
+
+  // calculate tupesize
+  int tupesize = 0;
+  for (int i = 0; i < col_def_arr->used; i++) {
+    tupesize += col_def_arr->items[i].len;
+  }
+  char buf[tupesize];
+  memset(buf, 0, tupesize);
+  int offset = 0;
+  for (int i = 0; i < ins_val_arr->used; i++) {
+    int len = col_def_arr->items[i].len;
+    if (ins_val_arr->items[i].datatype == STRING) {
+      memcpy(buf + offset, ins_val_arr->items[i].val.as_str,
+             strlen(ins_val_arr->items[i].val.as_str));
+    } else {
+      memcpy(buf + offset, &ins_val_arr->items[i].val.as_int, len);
+    }
+    offset += len;
+  }
+  sql_ins_buf_to_page(mem->buffer + memloc, buf, tupesize);
+  free(ins_val_arr->items);
+  free(col_def_arr->items);
+  free(ins_val_arr);
+  free(col_def_arr);
 }
