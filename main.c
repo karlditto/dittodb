@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <time.h>
@@ -190,9 +191,8 @@ int main_vm() {
   //
 
   VM_Instruction program[] = {
-      vm_push((Word){.as_i64 = 32}),
-      vm_push((Word){.as_i64 = 33}),
-      vm_swap(0),
+      vm_push((Word){.tag = WORD_I64, .val.as_i64 = 0}),
+      vm_not(),
       vm_hlt(),
   };
   while (!vm.halt) {
@@ -204,7 +204,7 @@ int main_vm() {
       vm_dump_stack_n_inst(vm, program);
       exit(1);
     }
-    fgetc(stdin);
+    // fgetc(stdin);
   }
   return 0;
 }
@@ -221,112 +221,130 @@ int main(int argc, char **argv) {
   VM vm = {0};
 
   // TEST: TEST CREATE
-  Token *token =
-      tokenize("create table t1 (id integer, txt char(16), remark char(32))");
+  //
+  // sql_exec_create(
+  //     "create table t1 (t1_id integer, t1_txt char(15), t1_note char(16))",
+  //     &vm, &mem, &table_definition);
+  // vm.stack_size = 0, vm.halt = 0, vm.pinst = 0;
+  sql_exec_sql(
+      "create table t1 (t1_id integer, t1_txt char(15), t1_note char(16))", &vm,
+      &mem, &table_definition);
 
-  Node *ast = parse(token);
-  // print_ast_tree(ast, 1);
-  SQL_Program prog = sql_program(ast);
-  // vm_dump_inst(prog.items, prog.used);
+  // sql_exec_create(
+  //     "create table t2 (t2_id integer, t2_txt char(15), t2remark char(16))",
+  //     &vm, &mem, &table_definition);
+  // vm.stack_size = 0, vm.halt = 0, vm.pinst = 0;
 
-  while (!vm.halt) {
-    // vm_dump_stack_n_inst(vm, prog.items);
-    VM_Instruction_Signal sig = vm_exec_prog(&vm, prog.items, prog.used);
-    if (sig != INST_SIG_OK) {
-      printf("%s\n", vm_sig_as_cstr(sig));
-      // vm_dump_stack_n_inst(vm, prog.items);
-      exit(1);
-    }
-  }
+  sql_exec_sql(
+      "create table t2 (t2_id integer, t2_txt char(15), t2remark char(16))",
+      &vm, &mem, &table_definition);
 
-  DB_Page *thispage = vm.stack[0].as_ptr;        // extract page from stack;
-  thispage->pageheader.pageno = global_pageno++; // set its pageno
-  int idx = hashmap_append(&mem.pagedir, thispage->pageheader.objname);
-  KV_append(mem.pagedir.items[idx], thispage->pageheader.pageno);
-
-  SQL_Col_Def_Array *col_def_arr = vm.stack[1].as_ptr;
-  mem_append(&mem, *thispage);
-  idx = hashmap_append(&table_definition, thispage->pageheader.objname);
-  KV_append(table_definition.items[idx], (uint64_t)col_def_arr);
-
-  free(prog.items);
+  // sql_exec_create("create table t3 (t3_tablename char(32), t3_id integer)",
+  // &vm,
+  //                 &mem, &table_definition);
+  // vm.stack_size = 0, vm.halt = 0, vm.pinst = 0;
+  sql_exec_sql("create table t3 (t3_tablename char(32), t3_id integer)", &vm,
+               &mem, &table_definition);
 
   // TEST: TEST INSERT
-  token = tokenize("insert into t1 values(1337,'hello "
-                   "world', 'haha you suck')");
-  ast = parse(token);
-  // print_ast_tree(ast, 1);
-  prog = sql_program(ast);
-  // vm_dump_inst(prog.items, prog.used);
+  //
+  // sql_exec_insert("insert into t1 values(0,'this is t1:0', 'you forget')",
+  // &vm,
+  //                 &table_definition, &mem);
+  // vm.stack_size = 0, vm.halt = 0, vm.pinst = 0;
+  // sql_exec_insert("insert into t1 values(1,'this is t1:1', 'thousand
+  // things')",
+  //                 &vm, &table_definition, &mem);
+  // vm.stack_size = 0, vm.halt = 0, vm.pinst = 0;
+  // sql_exec_insert("insert into t1 values(2,'this is t1:2', 'everyday.')",
+  // &vm,
+  //                 &table_definition, &mem);
+  // vm.stack_size = 0, vm.halt = 0, vm.pinst = 0;
+  // sql_exec_insert("insert into  t3 values('t3:0, make sure', 0)", &vm,
+  //                 &table_definition, &mem);
+  // vm.stack_size = 0, vm.halt = 0, vm.pinst = 0;
+  // sql_exec_insert("insert into t3  values('t3:1, this is one of them', 1)",
+  // &vm,
+  //                 &table_definition, &mem);
+  // vm.stack_size = 0, vm.halt = 0, vm.pinst = 0;
 
-  vm.stack_size = 0;
-  vm.halt = 0;
-  vm.pinst = 0;
-  while (!vm.halt) {
-    // vm_dump_stack_n_inst(vm, prog.items);
-    VM_Instruction_Signal sig = vm_exec_prog(&vm, prog.items, prog.used);
-    if (sig != INST_SIG_OK) {
-      printf("%s\n", vm_sig_as_cstr(sig));
-      // vm_dump_stack_n_inst(vm, prog.items);
-      exit(1);
-    }
-  }
-  char *ins_tabname = vm.stack[0].as_ptr;
-  SQL_Insert_Val_Array *ins_val_arr = vm.stack[1].as_ptr;
-  // insert values checked against table definition;
-  assert(col_def_arr->used == ins_val_arr->used &&
-         "Insert values number mismatch with table definition");
-  for (int i = 0; i < ins_val_arr->used; i++) {
-    assert(col_def_arr->items[i].type == ins_val_arr->items[i].datatype &&
-           "Insert values type mismatch with table definition");
-  }
-  idx = hashmap_find(&mem.pagedir, ins_tabname);
-  int pageno = mem.pagedir.items[idx].pageno[0];
-  char pageno_str[32];
-  sprintf(pageno_str, "%d", pageno);
-  idx = hashmap_find(&mem.pagetable, pageno_str);
-  int memloc = mem.pagetable.items[idx].pageno[0];
-
-  // calculate tupesize
-  int tupesize = 0;
-  for (int i = 0; i < col_def_arr->used; i++) {
-    tupesize += col_def_arr->items[i].len;
-  }
-  char buf[tupesize];
-  memset(buf, 0, tupesize);
-  int offset = 0;
-  for (int i = 0; i < ins_val_arr->used; i++) {
-    int len = col_def_arr->items[i].len;
-    if (ins_val_arr->items[i].datatype == STRING) {
-      memcpy(buf + offset, ins_val_arr->items[i].val.as_str,
-             strlen(ins_val_arr->items[i].val.as_str));
-    } else {
-      memcpy(buf + offset, &ins_val_arr->items[i].val.as_int, len);
-    }
-    offset += len;
-  }
-  sql_ins_buf_to_page(mem.buffer + memloc, buf, tupesize);
+  sql_exec_sql("insert into t1 values(0,'this is t1:0', 'you forget')", &vm,
+               &mem, &table_definition);
+  sql_exec_sql("insert into t1 values(1,'this is t1:1', 'thousand things')",
+               &vm, &mem, &table_definition);
+  sql_exec_sql("insert into t1 values(2,'this is t1:2', 'everyday.')", &vm,
+               &mem, &table_definition);
+  sql_exec_sql("insert into  t3 values('t3:0, make sure', 0)", &vm, &mem,
+               &table_definition);
+  sql_exec_sql("insert into t3  values('t3:1, this is one of them', 1)", &vm,
+               &mem, &table_definition);
 
   // TEST: TEST SELECT;
-  token = tokenize("select * from t1 where id = 1337 and txt = 'hello world' ");
-  print_token(token);
-  ast = parse(token);
-  print_ast_tree(ast, 1);
-  prog = sql_program(ast);
+  //
+  // sql_exec_select("select t2.*,t3.*,432*0.52,'ohnepixel',t3.t3_tablename from
+  // "
+  //                 "t2,t3 where 1=1",
+  //                 &table_definition, &vm, &mem);
+  // sql_exec_sql("from t1,t3 select t1.* ", &vm, &mem, &table_definition);
 
+  // NOTE: SQL parser
+  //
+  region_free(&mem_ast);
+  if (argc > 2) {
+    fprintf(stderr, "too many arguments.\n");
+    exit(EXIT_FAILURE);
+  }
+
+  if (argc == 2) {
+    mem_ast = region_init(ARENA_SIZE_BYTES);
+    Token *token = tokenize(argv[1]);
+    print_token(token);
+
+    Node *ast = parse(token);
+    print_ast(ast, 1);
+    // token_free(token);
+    printf("%lu\n", mem_ast.used);
+    region_free(&mem_ast);
+    return 0;
+  }
+
+  char *command = NULL;
+  char *prompt = "SQL> ";
+  while (true) {
+    mem_ast = region_init(ARENA_SIZE_BYTES);
+    command = readline(prompt);
+    if (!command) {
+      break;
+    }
+    if (command && *command)
+      add_history(command);
+    if (strcasecmp(command, "exit") == 0 || strcasecmp(command, "quit") == 0) {
+      break;
+    }
+    sql_exec_sql(command, &vm, &mem, &table_definition);
+    free(command);
+    region_free(&mem_ast);
+  }
+  free(command);
+  //
+  //
   // NOTE: FREE HEAP MEMORY
 
   region_free(&mem_ast);
-
-  free(ins_val_arr->items);
-  free(col_def_arr->items);
-  free(ins_val_arr);
-  free(col_def_arr);
   hashmap_free(&mem.pagetable);
   hashmap_free(&mem.pagedir);
   free(mem.buffer);
+  SQL_Col_Def_Array *to_free =
+      (SQL_Col_Def_Array *)table_definition.items[0].pageno;
+  for (int i = 0; i < table_definition.capa; i++) {
+    if (table_definition.items[i].cnt != 0) {
+      SQL_Col_Def_Array *to_free =
+          (SQL_Col_Def_Array *)table_definition.items[i].pageno[0];
+      free(to_free->items);
+      free(to_free);
+    }
+  }
+  free(to_free);
   hashmap_free(&table_definition);
-  free(prog.items);
-  free(thispage);
   return 0;
 }

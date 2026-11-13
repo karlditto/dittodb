@@ -114,6 +114,8 @@ typedef enum {
   LEQ,
   GT,
   GEQ,
+  DOT,
+  AS,
   LPAREN,
   RPAREN,
   ATOM,

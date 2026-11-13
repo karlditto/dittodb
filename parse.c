@@ -69,6 +69,8 @@ static char *get_exact_type(Node *node) {
   exacttypestr[LEQ] = "LEQ";
   exacttypestr[GT] = "GT";
   exacttypestr[GEQ] = "GEQ";
+  exacttypestr[DOT] = "DOT";
+  exacttypestr[AS] = "AS";
   exacttypestr[LPAREN] = "LPAREN";
   exacttypestr[RPAREN] = "RPAREN";
   exacttypestr[ATOM] = "ATOM";
@@ -108,49 +110,55 @@ void print_ast(Node *node, int depth) {
 
 static BindPower bindpower_lookup(Token *token) {
   if (strcasecmp(token->str, "+") == 0) {
-    return (BindPower){.lhs = 5, .rhs = 6};
+    return (BindPower){.lhs = 7, .rhs = 8};
   }
   if (strcasecmp(token->str, "-") == 0) {
-    return (BindPower){.lhs = 5, .rhs = 6};
+    return (BindPower){.lhs = 6, .rhs = 7};
   }
   if (strcasecmp(token->str, "*") == 0) {
-    return (BindPower){.lhs = 7, .rhs = 8};
+    return (BindPower){.lhs = 9, .rhs = 10};
   }
   if (strcasecmp(token->str, "/") == 0) {
-    return (BindPower){.lhs = 7, .rhs = 8};
+    return (BindPower){.lhs = 9, .rhs = 10};
   }
   if (strcasecmp(token->str, "(") == 0) {
-    return (BindPower){.lhs = 7, .rhs = 8};
+    return (BindPower){.lhs = 9, .rhs = 10};
   }
   if (strcasecmp(token->str, ")") == 0) {
-    return (BindPower){.lhs = 7, .rhs = 8};
+    return (BindPower){.lhs = 9, .rhs = 10};
   }
   if (strcasecmp(token->str, ",") == 0) {
-    return (BindPower){.lhs = 3, .rhs = 4};
+    return (BindPower){.lhs = 5, .rhs = 6};
   }
   if (strcasecmp(token->str, "=") == 0) {
-    return (BindPower){.lhs = 4, .rhs = 3};
+    return (BindPower){.lhs = 6, .rhs = 5};
   }
   if (strcasecmp(token->str, "<>") == 0) {
-    return (BindPower){.lhs = 4, .rhs = 3};
+    return (BindPower){.lhs = 6, .rhs = 5};
   }
   if (strcasecmp(token->str, "and") == 0) {
-    return (BindPower){.lhs = 1, .rhs = 2};
+    return (BindPower){.lhs = 3, .rhs = 4};
   }
   if (strcasecmp(token->str, "or") == 0) {
-    return (BindPower){.lhs = 0, .rhs = 1};
+    return (BindPower){.lhs = 1, .rhs = 2};
   }
   if (strcasecmp(token->str, ">") == 0) {
-    return (BindPower){.lhs = 3, .rhs = 4};
+    return (BindPower){.lhs = 5, .rhs = 6};
   }
   if (strcasecmp(token->str, ">=") == 0) {
-    return (BindPower){.lhs = 3, .rhs = 4};
+    return (BindPower){.lhs = 5, .rhs = 6};
   }
   if (strcasecmp(token->str, "<") == 0) {
-    return (BindPower){.lhs = 3, .rhs = 4};
+    return (BindPower){.lhs = 5, .rhs = 6};
   }
   if (strcasecmp(token->str, "<=") == 0) {
-    return (BindPower){.lhs = 3, .rhs = 4};
+    return (BindPower){.lhs = 5, .rhs = 6};
+  }
+  if (strcasecmp(token->str, ".") == 0) {
+    return (BindPower){.lhs = 9, .rhs = 10};
+  }
+  if (strcasecmp(token->str, "as") == 0) {
+    return (BindPower){.lhs = 9, .rhs = 10};
   }
   fprintf(stderr, "unknown operator in bind power lookup phase");
   exit(EXIT_FAILURE);
@@ -237,6 +245,14 @@ static Node *node_from_token(Token *token) {
     }
     if (strcasecmp(token->str, "<=") == 0) {
       node->type.exacttype = LEQ;
+      return node;
+    }
+    if (strcasecmp(token->str, ".") == 0) {
+      node->type.exacttype = DOT;
+      return node;
+    }
+    if (strcasecmp(token->str, "as") == 0) {
+      node->type.exacttype = AS;
       return node;
     }
     if (strcasecmp(token->str, "AND") == 0) {
@@ -492,9 +508,11 @@ Node *parse_from(Token **token, int min_bp) {
       break;
     }
 
-    if (operator->type.exacttype != COMMA) {
+    if (!(operator->type.exacttype == COMMA ||
+          operator->type.exacttype == AS)) {
       fprintf(stderr, "[ERROR] at FROM parsing phase\n");
-      fprintf(stderr, "[ERROR] operator \",\" expected at token: \"%s\"\n",
+      fprintf(stderr,
+              "[ERROR] operator \",\" or \"as\" expected at token: \"%s\"\n",
               operator->token->str);
       return NULL;
     }

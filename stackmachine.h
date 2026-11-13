@@ -26,18 +26,22 @@ typedef enum {
   INST_DUP,  // dup a value at the offset of top stack position
   INST_SWAP, // swap top of stack and what operand is pointing to, similar to
              // dup
-  INST_IADD, // I for integer, F for double
-  INST_ISUB,
-  INST_IDIV,
-  INST_IMUL,
-  INST_FADD, // I for integer, F for double
-  INST_FSUB,
-  INST_FDIV,
-  INST_FMUL,
+  INST_ADD,  // I for integer, F for double
+  INST_SUB,
+  INST_DIV,
+  INST_MUL,
   INST_JMP,
   INST_JNZ,
+  // in case sql passes char type, push datatupe onto stack for extra info
   INST_EQ,
-  INST_HLT,
+  INST_NEQ,
+  INST_LEQ,
+  INST_GEQ,
+  INST_LT,
+  INST_GT,
+  INST_OR,
+  INST_AND,
+  INST_NOT,
   INST_CREATE_TABLE, // use 1 stack value at the top, and consume it,
                      // it's tablename, then the address of
                      // DB_Page malloced is push to the stack , also the address
@@ -48,17 +52,39 @@ typedef enum {
   INST_INSERT_PREP,   // malloc struct for following operation
   INST_INSERT_VALUE,  // use 3 stack values, consume 2;
   // they are struct, datatype and value;
+  INST_FROM_TABLES, // put Node * and MemArea * on stack;
+  // take all the values on the stack and put the table_list
+  // struct and the address of a row generator on top of the
+  // stack;
+  INST_GENERATOR, // call sql_cartesian_rowset_generator
+  INST_FETCH_VAL, // fetch the value of tabname.colname
+  INST_PUSH_RES_NZ,
+  INST_PUSH_SELECT_LIST, // push to SQL_Select_LIST
+  INST_SELECT_PROJECT,   // project to filtered rowset to result set
+  INST_HLT_IFZ,
+  INST_HLT,
   INST_COUNT,
 } VM_Instruction_Type;
 
-typedef union {
-  int64_t as_i64;
-  uint64_t as_u64;
-  double as_f64;
-  void *as_ptr;
-} Word;
+typedef enum {
+  WORD_NIL,
+  WORD_I64,
+  WORD_U64,
+  WORD_F64,
+  WORD_PTR,
+  WORD_STR,
+  WORD_CNT,
+} Word_Tag;
 
-static_assert(sizeof(Word) == 8, "Word size should be 64 bits");
+typedef struct {
+  Word_Tag tag;
+  union {
+    int64_t as_i64;
+    int64_t as_u64;
+    double as_f64;
+    void *as_ptr;
+  } val;
+} Word;
 
 typedef struct {
   VM_Instruction_Type inst_type;
@@ -77,21 +103,34 @@ VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
 void vm_dump_stack(VM vm);
 void vm_dump_inst(VM_Instruction program[], int program_size);
 void vm_dump_stack_n_inst(VM vm, VM_Instruction program[]);
+void vm_dump_word(Word word);
 const char *vm_sig_as_cstr(VM_Instruction_Signal signal);
 const char *vm_ins_as_cstr(VM_Instruction ins);
+const char *vm_word_type_as_cstr(Word_Tag tag);
 VM_Instruction vm_push(Word operand);
 VM_Instruction vm_dup(size_t pstack);
-VM_Instruction vm_iadd();
-VM_Instruction vm_isub();
-VM_Instruction vm_imul();
-VM_Instruction vm_idiv();
-VM_Instruction vm_fadd();
-VM_Instruction vm_fsub();
-VM_Instruction vm_fmul();
-VM_Instruction vm_fdiv();
+VM_Instruction vm_add();
+VM_Instruction vm_sub();
+VM_Instruction vm_mul();
+VM_Instruction vm_div();
 VM_Instruction vm_jmp(size_t pinst);
 VM_Instruction vm_hlt();
 VM_Instruction vm_eq();
+VM_Instruction vm_neq();
+VM_Instruction vm_lt();
+VM_Instruction vm_leq();
+VM_Instruction vm_gt();
+VM_Instruction vm_geq();
 VM_Instruction vm_jnz(size_t pinst);
 VM_Instruction vm_nop();
 VM_Instruction vm_swap(size_t pstack);
+VM_Instruction vm_sql_from_table();
+VM_Instruction vm_not();
+VM_Instruction vm_and();
+VM_Instruction vm_or();
+VM_Instruction vm_gen();
+VM_Instruction vm_fetchval();
+VM_Instruction vm_hlt_ifz();
+VM_Instruction vm_push_res_nz();
+VM_Instruction vm_push_sel_list();
+VM_Instruction vm_select_project();

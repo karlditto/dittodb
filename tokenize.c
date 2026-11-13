@@ -133,7 +133,7 @@ static size_t match_identifier(const char *s) {
   int NUM_MATCHES = 1;
   regex_t re;
   regmatch_t match[NUM_MATCHES];
-  const char *pattern = "^[A-Z]+[A-Z0-9_]*";
+  const char *pattern = "^[A-Z_]+[A-Z0-9_]*";
 
   if (regcomp(&re, pattern, REG_ICASE | REG_EXTENDED)) {
     perror("regex compilation failed");
@@ -216,7 +216,7 @@ static size_t match_operator(const char *s) {
   regmatch_t match[NUM_MATCHES];
   // const char *pattern =
   //     "^(\\+|-|\\*|/|=|<>|<|>|<=|>=|IS\\b|LIKE\\b|NOT\\b|AND\\b|OR\\b)";
-  const char *pattern = "^(\\+|-|\\*|/|\\(|\\)|,|<>|=|>|>=|<|<=|or|and)";
+  const char *pattern = "^(\\+|-|\\*|/|\\(|\\)|,|\\.|<>|=|>|>=|<|<=|or|and|as)";
 
   if (regcomp(&re, pattern, REG_ICASE | REG_EXTENDED)) {
     perror("regex compilation failed");
