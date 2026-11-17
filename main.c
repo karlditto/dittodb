@@ -299,7 +299,7 @@ int main(int argc, char **argv) {
     sql_exec_sql(pokemon_sql, &vm, &mem, &table_definition);
   }
 
-  sql_exec_sql("select -1 from pokemon", &vm, &mem, &table_definition);
+  sql_exec_sql("select (-1) * 3 from pokemon", &vm, &mem, &table_definition);
   // NOTE: SQL parser
   //
   region_free(&mem_ast);

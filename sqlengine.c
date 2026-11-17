@@ -401,7 +401,8 @@ static void preorder_tree(Node *node, Ast_Array *arr) {
         (node->type.exacttype == ADD)) {
       // BUG: rhs and lhs of prefix should be reversed
       node->type.exacttype = ADD_PREFIX;
-    } // in INSERT statement cause issue
+    }
+    // in INSERT statement cause issue
     sql_push((*arr), *node);
     return;
   }
@@ -694,6 +695,16 @@ static void sql_select_postorder(Node *select_node, Ast_Array *arr) {
     sql_push((*arr), *select_node);
     return;
   }
+  if (select_node->expr_rhs == NULL && select_node->expr_lhs != NULL &&
+      (select_node->type.exacttype == SUB)) {
+    // BUG: rhs and lhs of prefix should be reversed
+    select_node->type.exacttype = SUB_PREFIX;
+  }
+  if (select_node->expr_rhs == NULL && select_node->expr_lhs != NULL &&
+      (select_node->type.exacttype == ADD)) {
+    // BUG: rhs and lhs of prefix should be reversed
+    select_node->type.exacttype = ADD_PREFIX;
+  }
   sql_select_postorder(select_node->expr_lhs, arr);
   sql_select_postorder(select_node->expr_rhs, arr);
   if (select_node->type.exacttype == COMMA) {
@@ -732,7 +743,7 @@ void sql_exec_select(char *sql_text, HashMap *table_definition, VM *vm,
   Token *token = tokenize(sql_text);
   // print_token(token);
   Node *ast = parse(token);
-  print_ast_tree(ast, 0);
+  // print_ast_tree(ast, 0);
   SQL_Program prog = {0};
 
   // process from
@@ -917,9 +928,9 @@ void sql_exec_select(char *sql_text, HashMap *table_definition, VM *vm,
   sql_push(prog, vm_push_res_nz());
   sql_push(prog, vm_jmp(gen_iidx));
   sql_push(prog, vm_hlt());
-  vm_dump_inst(prog.items, prog.used);
+  // vm_dump_inst(prog.items, prog.used);
   while (!vm->halt) {
-    vm_dump_stack_n_inst(*vm, prog.items);
+    // vm_dump_stack_n_inst(*vm, prog.items);
     VM_Instruction_Signal sig = vm_exec_prog(vm, prog.items, prog.used);
     if (sig != INST_SIG_OK) {
       printf("%s\n", vm_sig_as_cstr(sig));
@@ -1145,7 +1156,7 @@ void sql_exec_select(char *sql_text, HashMap *table_definition, VM *vm,
 void sql_exec_sql(char *sql, VM *vm, MemArea *mem, HashMap *table_definition) {
   Token *token = tokenize(sql);
   Node *ast = parse(token);
-  // print_ast_tree(ast, 1);
+  print_ast_tree(ast, 1);
   if (ast == NULL) {
     return;
   }
