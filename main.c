@@ -286,7 +286,20 @@ int main(int argc, char **argv) {
   //                 "t2,t3 where 1=1",
   //                 &table_definition, &vm, &mem);
   // sql_exec_sql("from t1,t3 select t1.* ", &vm, &mem, &table_definition);
+  //
+  //
+  //
 
+  sql_exec_sql("create table pokemon (id integer, name char(16) )", &vm, &mem,
+               &table_definition);
+  for (int i = 0; i < 5; i++) {
+    char pokemon_sql[129] = {0};
+    snprintf(pokemon_sql, 128, "insert into pokemon values (%d, '%s')", i,
+             pokemon[i]);
+    sql_exec_sql(pokemon_sql, &vm, &mem, &table_definition);
+  }
+
+  sql_exec_sql("select -1 from pokemon", &vm, &mem, &table_definition);
   // NOTE: SQL parser
   //
   region_free(&mem_ast);

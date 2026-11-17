@@ -63,6 +63,8 @@ typedef enum {
   INST_SELECT_PROJECT,   // project to filtered rowset to result set
   INST_HLT_IFZ,
   INST_HLT,
+  INST_ADD_PREFIX,
+  INST_SUB_PREFIX,
   INST_COUNT,
 } VM_Instruction_Type;
 
@@ -134,3 +136,5 @@ VM_Instruction vm_hlt_ifz();
 VM_Instruction vm_push_res_nz();
 VM_Instruction vm_push_sel_list();
 VM_Instruction vm_select_project();
+VM_Instruction vm_add_prefix();
+VM_Instruction vm_sub_prefix();

@@ -98,6 +98,9 @@ typedef enum {
   VALUES,
   ON,
 
+  ADD_PREFIX,
+  SUB_PREFIX,
+
   // expression type
   ADD,
   SUB,

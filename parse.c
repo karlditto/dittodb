@@ -54,6 +54,8 @@ static char *get_exact_type(Node *node) {
   exacttypestr[ORDER] = "ORDER";
   exacttypestr[BY] = "BY";
   exacttypestr[VALUES] = "VALUES";
+  exacttypestr[ADD_PREFIX] = "ADD_PREFIX";
+  exacttypestr[SUB_PREFIX] = "SUB_PREFIX";
   exacttypestr[ADD] = "ADD";
   exacttypestr[SUB] = "SUB";
   exacttypestr[MUL] = "MUL";

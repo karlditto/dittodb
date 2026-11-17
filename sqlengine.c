@@ -392,12 +392,22 @@ static void preorder_tree(Node *node, Ast_Array *arr) {
   // make an array of only the headnode of a expression
   if (node->type.exacttype != COMMA && node->type.exacttype != ROOT &&
       node->type.exacttype != VALUES) { // TODO:temporary migigation that VALUES
-                                        // in INSERT statement cause issue
+    if (node->expr_rhs == NULL && node->expr_lhs != NULL &&
+        (node->type.exacttype == SUB)) {
+      // BUG: rhs and lhs of prefix should be reversed
+      node->type.exacttype = SUB_PREFIX;
+    }
+    if (node->expr_rhs == NULL && node->expr_lhs != NULL &&
+        (node->type.exacttype == ADD)) {
+      // BUG: rhs and lhs of prefix should be reversed
+      node->type.exacttype = ADD_PREFIX;
+    } // in INSERT statement cause issue
     sql_push((*arr), *node);
     return;
   }
   for (size_t i = 0; i < node->childs->cnt; i++) {
     Node *cur_node = at(node->childs, i);
+
     preorder_tree(cur_node, arr);
   }
 }
@@ -697,6 +707,16 @@ static void sql_where_postorder(Node *where_node, Ast_Array *RPN) {
   if (where_node == NULL) {
     return;
   }
+  if (where_node->expr_rhs == NULL && where_node->expr_lhs != NULL &&
+      (where_node->type.exacttype == SUB)) {
+    // BUG: rhs and lhs of prefix should be reversed
+    where_node->type.exacttype = SUB_PREFIX;
+  }
+  if (where_node->expr_rhs == NULL && where_node->expr_lhs != NULL &&
+      (where_node->type.exacttype == ADD)) {
+    // BUG: rhs and lhs of prefix should be reversed
+    where_node->type.exacttype = ADD_PREFIX;
+  }
   sql_where_postorder(where_node->expr_lhs, RPN);
   sql_where_postorder(where_node->expr_rhs, RPN);
   sql_push((*RPN), *where_node);
@@ -712,7 +732,7 @@ void sql_exec_select(char *sql_text, HashMap *table_definition, VM *vm,
   Token *token = tokenize(sql_text);
   // print_token(token);
   Node *ast = parse(token);
-  // print_ast_tree(ast, 0);
+  print_ast_tree(ast, 0);
   SQL_Program prog = {0};
 
   // process from
@@ -786,6 +806,12 @@ void sql_exec_select(char *sql_text, HashMap *table_definition, VM *vm,
       break;
     case SUB:
       sql_push(prog, vm_sub());
+      break;
+    case ADD_PREFIX:
+      sql_push(prog, vm_add_prefix());
+      break;
+    case SUB_PREFIX:
+      sql_push(prog, vm_sub_prefix());
       break;
     case MUL:
       sql_push(prog, vm_mul());
@@ -891,9 +917,9 @@ void sql_exec_select(char *sql_text, HashMap *table_definition, VM *vm,
   sql_push(prog, vm_push_res_nz());
   sql_push(prog, vm_jmp(gen_iidx));
   sql_push(prog, vm_hlt());
-  // vm_dump_inst(prog.items, prog.used);
+  vm_dump_inst(prog.items, prog.used);
   while (!vm->halt) {
-    // vm_dump_stack_n_inst(*vm, prog.items);
+    vm_dump_stack_n_inst(*vm, prog.items);
     VM_Instruction_Signal sig = vm_exec_prog(vm, prog.items, prog.used);
     if (sig != INST_SIG_OK) {
       printf("%s\n", vm_sig_as_cstr(sig));
@@ -942,6 +968,12 @@ void sql_exec_select(char *sql_text, HashMap *table_definition, VM *vm,
       break;
     case SUB:
       sql_push(prog, vm_sub());
+      break;
+    case ADD_PREFIX:
+      sql_push(prog, vm_add_prefix());
+      break;
+    case SUB_PREFIX:
+      sql_push(prog, vm_sub_prefix());
       break;
     case MUL:
       sql_push(prog, vm_mul());

@@ -859,6 +859,38 @@ VM_Instruction_Signal vm_exec_prog(VM *vm, VM_Instruction program[],
     vm->pinst++;
     break;
 
+  case INST_SUB_PREFIX:
+    if (vm->stack_size < 1) {
+      return INST_SIG_UNDERFOW;
+    }
+    switch (vm->stack[vm->stack_size - 1].tag) {
+    case WORD_I64:
+      vm->stack[vm->stack_size - 1].val.as_i64 =
+          -vm->stack[vm->stack_size - 1].val.as_i64;
+      break;
+    case WORD_U64:
+      vm->stack[vm->stack_size - 1].val.as_i64 =
+          -vm->stack[vm->stack_size - 1].val.as_u64;
+      vm->stack[vm->stack_size - 1].tag = WORD_I64;
+      break;
+    case WORD_F64:
+      vm->stack[vm->stack_size - 1].val.as_f64 =
+          -vm->stack[vm->stack_size - 1].val.as_f64;
+      break;
+    default:
+      return INST_SIG_UNDERFOW;
+      break;
+    }
+    vm->pinst++;
+    break;
+
+  case INST_ADD_PREFIX:
+    if (vm->stack_size < 1) {
+      return INST_SIG_UNDERFOW;
+    }
+    vm->pinst++;
+    break;
+
     // default:
     //   return INST_SIG_UNKNOWN;
   }
@@ -1032,6 +1064,10 @@ const char *vm_ins_as_cstr(VM_Instruction ins) {
   switch (ins.inst_type) {
   case INST_NOP:
     return "INST_NOP";
+  case INST_ADD_PREFIX:
+    return "INST_ADD_PREFIX";
+  case INST_SUB_PREFIX:
+    return "INST_SUB_PREFIX";
   case INST_GENERATOR:
     return "INST_GENERATOR";
   case INST_SELECT_PROJECT:
@@ -1244,4 +1280,10 @@ VM_Instruction vm_push_sel_list() {
 }
 VM_Instruction vm_select_project() {
   return (VM_Instruction){.inst_type = INST_SELECT_PROJECT};
+}
+VM_Instruction vm_add_prefix() {
+  return (VM_Instruction){.inst_type = INST_ADD_PREFIX};
+}
+VM_Instruction vm_sub_prefix() {
+  return (VM_Instruction){.inst_type = INST_SUB_PREFIX};
 }
